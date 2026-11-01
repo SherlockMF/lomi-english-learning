@@ -93,6 +93,7 @@ const SettingsDialog = lazy(() => import('./components/SettingsDialog').then(mod
 const StudySession = lazy(() => import('./components/StudySession').then(module => ({ default: module.StudySession })))
 const VoicePractice = lazy(() => import('./components/VoicePractice').then(module => ({ default: module.VoicePractice })))
 const OnboardingDialog = lazy(() => import('./components/OnboardingDialog').then(module => ({ default: module.OnboardingDialog })))
+const MembershipPlans = lazy(() => import('./components/MembershipPlans').then(module => ({ default: module.MembershipPlans })))
 const pageFallback = <p role="status">正在打开页面…</p>
 const studyFallback = <div className="study-overlay" role="status">正在准备训练…</div>
 const settingsFallback = <div className="dialog-backdrop" role="status">正在打开设置…</div>
@@ -748,6 +749,7 @@ function App({ onReady, onBusyChange, onRequestLogin, initialTab = 'today', onTa
           />
         )}
         {tab === 'voice' && <VoicePractice items={items} accent={settings.speechAccent} onRequestLogin={onRequestLogin} onSaveExpression={saveSpokenExpression} learningGoal={settings.learningGoal} />}
+        {tab === 'plans' && <MembershipPlans onExplore={() => { setTab('voice'); onTabChange?.('voice') }} />}
         </Suspense>
       </AppShell>
 

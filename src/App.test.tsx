@@ -24,6 +24,26 @@ describe('App integration', () => {
     vi.restoreAllMocks()
   })
 
+  it('lets guests inspect proposed plans without signing in or changing learning data', async () => {
+    await initializeDatabase([handcraftedSeedWords[0]])
+    const before = await getUserDataSnapshot()
+    const onRequestLogin = vi.fn()
+    const user = userEvent.setup()
+    render(<App onRequestLogin={onRequestLogin} />)
+    await screen.findByText('今日学习计划', {}, { timeout: 20_000 })
+    await user.click(screen.getAllByRole('button', { name: '套餐' })[0])
+    const plans = await screen.findByRole('region', { name: '给每天的英语，留一点时间。' })
+    expect(within(plans).getByText(/暂未开放购买/)).toBeInTheDocument()
+    expect(within(plans).getByRole('article', { name: '标准' })).toHaveTextContent('69')
+    expect(within(plans).getByRole('article', { name: '标准' })).toHaveTextContent('推荐')
+    expect(within(plans).queryByRole('button', { name: /购买|开通|订阅|升级/ })).not.toBeInTheDocument()
+    await user.click(within(plans).getByRole('button', { name: '去口语页看看' }))
+    expect(await screen.findByRole('heading', { name: '把学过的英语，说出来。' })).toBeInTheDocument()
+    expect(screen.queryByRole('heading', { name: '练习历史' })).not.toBeInTheDocument()
+    expect(onRequestLogin).not.toHaveBeenCalled()
+    expect(await getUserDataSnapshot()).toEqual(before)
+  })
+
   it('previews pages without reading local user data and gates actual actions', async () => {
     const privateWord = { ...handcraftedSeedWords[0], id: 'private-word', expression: 'private-account-word' }
     await initializeDatabase([privateWord])

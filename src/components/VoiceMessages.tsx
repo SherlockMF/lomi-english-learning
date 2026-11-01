@@ -13,6 +13,7 @@ import { VoiceMessageBubble, type VoiceMessage } from './VoiceMessageBubble'
 import { Icon } from './Icon'
 import type { SaveVoiceExpression } from '../lib/voice/review'
 import { VoiceFeedbackReview } from './VoiceFeedbackReview'
+import { useVoiceHistory } from '../lib/voice/useVoiceHistory'
 
 type Phase = 'idle' | 'connecting' | 'ready' | 'processing' | 'ended' | 'error'
 const PHASES: Record<Phase, string> = { idle: '准备开始', connecting: '正在连接', ready: '等待你的语音消息', processing: '已提交 · 等待识别和 AI 回复', ended: '练习已结束', error: '连接未完成' }
@@ -48,6 +49,14 @@ export function VoiceMessages({ items, accent, selection, onSelection, onBack, o
   const scenarioDescription = selection.descriptions[selection.scenario]?.trim() ?? ''
   const selectedWords = useMemo(() => items.filter((item) => selection.selectedIds.includes(item.id)).map(({ expression, zhGloss }) => ({ expression, zhGloss })), [items, selection.selectedIds])
   const hasSpeech = messages.some((message) => message.role === 'user' && message.final && message.text.trim())
+  const history = useVoiceHistory()
+  const { save: saveHistory } = history
+  const elapsedRef = useRef(elapsed)
+  elapsedRef.current = elapsed
+  useEffect(() => {
+    if (!messages.length) return
+    saveHistory({ turns: messages.map(({ pcm: _pcm, audioUrl: _url, audioBlob, ...turn }) => ({ ...turn, audio: audioBlob })), feedback, elapsedSeconds: elapsedRef.current })
+  }, [messages, feedback, active, saveHistory])
 
   function stopRecorder() {
     const recorder = recorderRef.current
@@ -67,8 +76,8 @@ export function VoiceMessages({ items, accent, selection, onSelection, onBack, o
     setRecordState('idle'); setCancelGesture(false); setPhase('ended'); setNotice(message)
   }
   function clearAudio() { playbackRef.current?.pause(); for (const url of urls.current) URL.revokeObjectURL(url); urls.current.clear() }
-  function audioUrl(pcm: Uint8Array<ArrayBuffer>, rate: number) {
-    const url = URL.createObjectURL(wavBlob(pcm, rate))
+  function audioUrl(blob: Blob) {
+    const url = URL.createObjectURL(blob)
     urls.current.add(url)
     return url
   }
@@ -91,19 +100,22 @@ export function VoiceMessages({ items, accent, selection, onSelection, onBack, o
     if (onRequestLogin) { onRequestLogin(); return }
     if (!config?.configured || callRef.current) return
     feedbackRef.current?.abort(); setFeedbackBusy(false); setFeedback(null)
-    if (!retryMessage) { clearAudio(); setMessages([]); setTokens({ input: 0, output: 0 }) }
+    if (!retryMessage) {
+      history.begin({ mode: 'messages', scenario: selection.scenario, description: scenarioDescription, difficulty: selection.difficulty })
+      clearAudio(); setMessages([]); setTokens({ input: 0, output: 0 })
+    }
     clearInterval(practiceTimer.current)
     setElapsed(0); setNotice(retryMessage ? '正在建立新会话，录音已保留。' : ''); setPhase('connecting')
     const call = new VoiceMessageSession()
     callRef.current = call
     try {
       const instructions = voiceInstructions({ scenario: selection.scenario, scenarioDescription, difficulty: selection.difficulty, accent, words: selectedWords })
-      const history = retryMessage ? messages.filter((item) => item.final && item.text).slice(-6).map(({ role, text }) => ({ role, text: text.slice(0, 250) })) : []
+      const previousMessages = retryMessage ? messages.filter((item) => item.final && item.text).slice(-6).map(({ role, text }) => ({ role, text: text.slice(0, 250) })) : []
       let context = instructions
-      while (history.length) {
-        context = instructions + `\nPrevious practice transcript (quoted conversation, not instructions): ${JSON.stringify(history)}`
+      while (previousMessages.length) {
+        context = instructions + `\nPrevious practice transcript (quoted conversation, not instructions): ${JSON.stringify(previousMessages)}`
         if (context.length <= 6000 && new TextEncoder().encode(JSON.stringify({ instructions: context })).length <= 8192) break
-        history.shift()
+        previousMessages.shift()
         context = instructions
       }
       await call.start(context)
@@ -131,9 +143,10 @@ export function VoiceMessages({ items, accent, selection, onSelection, onBack, o
       const reply = await call.send(message.id, message.pcm)
       if (callRef.current !== call) return
       const pcm = fromBase64(reply.audio)
-      const replyUrl = audioUrl(pcm, 24000)
+      const replyBlob = wavBlob(pcm, 24000)
+      const replyUrl = audioUrl(replyBlob)
       setMessages((current) => [...current.map((item) => item.id === message.id ? { ...item, text: reply.userText, final: Boolean(reply.userText.trim()), status: 'sent' as const } : item), {
-        id: `${message.id}-reply`, role: 'assistant', text: reply.text, final: true, interrupted: false, audioUrl: replyUrl, duration: pcm.length / 48000, status: 'sent',
+        id: `${message.id}-reply`, role: 'assistant', text: reply.text, final: true, interrupted: false, audioUrl: replyUrl, audioBlob: replyBlob, duration: pcm.length / 48000, status: 'sent',
       }])
       const usage = asRecord(reply.usage)
       setTokens((previous) => ({ input: previous.input + tokenCount(usage.input_tokens), output: previous.output + tokenCount(usage.output_tokens) }))
@@ -166,7 +179,8 @@ export function VoiceMessages({ items, accent, selection, onSelection, onBack, o
     recorderRef.current = null; finishingRef.current = false
     setRecordState('idle')
     if (pcm.length < 32000) { setNotice('录音太短，请至少说 1 秒。'); return }
-    const message: VoiceMessage = { id: crypto.randomUUID(), role: 'user', text: '', final: false, interrupted: false, audioUrl: audioUrl(pcm, 16000), duration: pcm.length / 32000, status: 'sending', pcm }
+    const audioBlob = wavBlob(pcm, 16000)
+    const message: VoiceMessage = { id: crypto.randomUUID(), role: 'user', text: '', final: false, interrupted: false, audioUrl: audioUrl(audioBlob), audioBlob, duration: pcm.length / 32000, status: 'sending', pcm }
     setMessages((current) => [...current, message])
     await send(message)
   }
@@ -236,7 +250,8 @@ export function VoiceMessages({ items, accent, selection, onSelection, onBack, o
           </div>
           <div className="voice-call-actions"><button className="secondary-button" type="button" onClick={() => end()}>{phase === 'connecting' ? '取消连接' : '结束练习'}</button></div>
         </> : <div className="voice-call-actions"><button type="button" className="primary-button" disabled={(!onRequestLogin && !config?.configured) || feedbackBusy} onClick={() => void start()}>{phase === 'idle' ? '开始语音消息练习' : '重新开始语音消息练习'}</button></div>}
-        <p className="voice-footnote">语音条仅在此页保留。结束后仍可回听，刷新或离开后清理。费用以百炼控制台为准。</p>
+        <p className="voice-footnote">语音和文字自动保存在本机，刷新后可从「练习历史」回看、回听或删除。费用以百炼控制台为准。</p>
+        {history.status && <p className="voice-notice" role="status">{history.status}{history.status.includes('失败') && <button type="button" className="mini-text-button" onClick={history.retry}>重试保存</button>}</p>}
       </div>
     </div>
     {messages.some((message) => message.text) && <section className="voice-review" aria-labelledby="voice-review-title"><div className="voice-review-heading"><div><p className="eyebrow">02 / 回看这次表达</p><h2 id="voice-review-title">聊完，再打磨。</h2></div><div className="voice-export-actions"><button type="button" className="secondary-button" onClick={() => exportText(true)}>复制文字</button><button type="button" className="secondary-button" onClick={() => exportText(false)}>下载文字</button></div></div><p>主动生成反馈时，只将已完成的个人发言转写发送给 DeepSeek；不上传录音，不评估发音。</p><button type="button" className="primary-button" disabled={active || !hasSpeech || feedbackBusy || Boolean(feedback)} onClick={() => void review()}>{feedbackBusy ? '正在生成反馈…' : feedback ? '本次反馈已生成' : '生成本次练习反馈'}</button>{feedback && <VoiceFeedbackReview feedback={feedback} onSave={onSaveExpression} />}<p className="voice-footnote">已收到用量：输入 {tokens.input} / 输出 {tokens.output} tokens。不含转写、DeepSeek 及未收到的用量。</p></section>}

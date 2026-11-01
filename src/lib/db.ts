@@ -10,6 +10,7 @@ import { SEED_CONTENT_REVISION } from '../data/seedContentRevision'
 import { isVocabularyLevel } from './studyDifficulty'
 import { trackDatabase } from './cloud/tracking'
 import type { CloudMeta, QueueEntry } from './cloud/types'
+import type { VoiceHistoryRecord } from './voice/history'
 import { sameCloudData } from './cloud/merge'
 import {
   createInitialTracks,
@@ -40,9 +41,10 @@ import {
 } from '../domain/types'
 
 export const DATABASE_NAME = 'recall-english'
-export const DATABASE_VERSION = 4
+export const DATABASE_VERSION = 5
 
 export interface RecallEnglishDatabase extends DBSchema {
+  voiceHistory: { key: string; value: VoiceHistoryRecord | { id: string; deleted: true }; indexes: { 'by-created-at': string } }
   cloudQueue: { key: string; value: QueueEntry }
   cloudMeta: { key: string; value: CloudMeta }
   words: {
@@ -344,6 +346,10 @@ function createStores(
   database: IDBPDatabase<RecallEnglishDatabase>,
   oldVersion: number,
 ): void {
+  if (!database.objectStoreNames.contains('voiceHistory')) {
+    const store = database.createObjectStore('voiceHistory', { keyPath: 'id' })
+    store.createIndex('by-created-at', 'createdAt')
+  }
   if (oldVersion < 1) {
     // Fresh installs historically created these in v1; keep for completeness when jumping to v2.
   }
@@ -1155,6 +1161,7 @@ export async function clearDatabase(): Promise<void> {
   const database = await getDatabase()
   const transaction = database.transaction(
     [
+      'voiceHistory',
       'words',
       'vocabularyLists',
       'wordListItems',
@@ -1167,6 +1174,7 @@ export async function clearDatabase(): Promise<void> {
     'readwrite',
   )
   await Promise.all([
+    transaction.objectStore('voiceHistory').clear(),
     transaction.objectStore('words').clear(),
     transaction.objectStore('vocabularyLists').clear(),
     transaction.objectStore('wordListItems').clear(),

@@ -164,6 +164,28 @@ describe('IndexedDB persistence', () => {
     expect(snapshot.timeEntries).toEqual([])
   })
 
+  it('adds voice history to V4 without changing existing vocabulary or review records', async () => {
+    const previous = await openDB(DATABASE_NAME, 4, {
+      upgrade(database) {
+        for (const store of ['words', 'tracks', 'attempts', 'settings', 'vocabularyLists', 'wordListItems', 'timeEntries']) {
+          database.createObjectStore(store, { keyPath: 'id' })
+        }
+      },
+    })
+    await previous.put('words', word())
+    await previous.put('tracks', track({ reps: 8, stability: 12 }))
+    await previous.put('attempts', attempt())
+    await previous.put('settings', DEFAULT_SETTINGS)
+    previous.close()
+    const snapshot = await getUserDataSnapshot()
+    const database = await getDatabase()
+    expect(database.version).toBe(DATABASE_VERSION)
+    expect(await database.getAll('voiceHistory')).toEqual([])
+    expect(snapshot.words).toEqual([word()])
+    expect(snapshot.tracks).toEqual([track({ reps: 8, stability: 12 })])
+    expect(snapshot.attempts).toEqual([attempt()])
+  })
+
   it('upgrades V1 vocabulary and settings directly to V3 while preserving review IDs', async () => {
     const previous = await openDB(DATABASE_NAME, 1, {
       upgrade(database) {

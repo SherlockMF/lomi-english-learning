@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import type { VoiceTurn } from '../lib/voice/transcript'
 
 export interface VoiceMessage extends VoiceTurn {
+  audioBlob?: Blob
   audioUrl: string
   duration: number
   status: 'sending' | 'sent' | 'failed'

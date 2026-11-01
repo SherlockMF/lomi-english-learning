@@ -5,6 +5,9 @@ import { VoiceMessages } from './VoiceMessages'
 import { DEFAULT_VOICE_SELECTION } from './VoicePreparation'
 import { VoiceMessageError } from '../lib/voice/messages'
 import type { VocabularyItem } from '../domain/types'
+import { Blob as NodeBlob } from 'node:buffer'
+import { clearVoiceHistory, listVoiceHistory, readVoiceHistory } from '../lib/voice/history'
+import { VoicePractice } from './VoicePractice'
 
 const mocks = vi.hoisted(() => ({ start: vi.fn(), send: vi.fn(), end: vi.fn(), record: vi.fn(), finish: vi.fn(), cancel: vi.fn(), createUrl: vi.fn(), revokeUrl: vi.fn() }))
 vi.mock('../lib/voice/config', () => ({ useVoiceConfig: () => ({ config: { configured: true }, error: '', reload: vi.fn() }) }))
@@ -27,7 +30,7 @@ beforeEach(() => {
   vi.spyOn(HTMLMediaElement.prototype, 'pause').mockImplementation(() => undefined)
   vi.spyOn(HTMLMediaElement.prototype, 'load').mockImplementation(() => undefined)
 })
-afterEach(() => { cleanup(); vi.restoreAllMocks(); vi.unstubAllGlobals(); vi.useRealTimers() })
+afterEach(async () => { cleanup(); await clearVoiceHistory(); vi.restoreAllMocks(); vi.unstubAllGlobals(); vi.useRealTimers() })
 
 async function open() {
   const view = render(<VoiceMessages items={[]} accent="uk" selection={DEFAULT_VOICE_SELECTION} onSelection={vi.fn()} onBack={vi.fn()} />)
@@ -41,6 +44,26 @@ async function record(user: ReturnType<typeof userEvent.setup>) {
   await user.click(await screen.findByRole('button', { name: '结束录音并发送' }))
 }
 describe('VoiceMessages', () => {
+  it('persists both audio messages and restores playback after remount', async () => {
+    vi.stubGlobal('Blob', NodeBlob)
+    const { user, view } = await open()
+    await record(user)
+    await waitFor(async () => {
+      const records = await listVoiceHistory()
+      expect(records).toHaveLength(1)
+      const saved = await readVoiceHistory(records[0].id)
+      expect(saved?.turns).toHaveLength(2)
+      expect(saved?.turns.every(turn => turn.audio && turn.audio.size > 0)).toBe(true)
+    })
+    view.unmount()
+    render(<VoicePractice items={[]} accent="uk" />)
+    await user.click(await screen.findByRole('button', { name: /回看练习/ }))
+    expect(await screen.findByRole('button', { name: /播放你的/ })).toBeEnabled()
+    expect(screen.getByRole('button', { name: /播放AI 的/ })).toBeEnabled()
+    expect(screen.getByText('A coffee, please.')).toBeInTheDocument()
+    expect(mocks.start).toHaveBeenCalledTimes(1)
+    expect(mocks.send).toHaveBeenCalledTimes(1)
+  })
   it('keeps recording available after ten minutes and displays elapsed time', async () => {
     const { user } = await open()
     // Advance the wall clock while leaving user interactions on real timers.

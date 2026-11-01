@@ -12,6 +12,8 @@ import { VoiceMessages } from './VoiceMessages'
 import { VoiceTurnFeedback } from './VoiceTurnFeedback'
 import type { SaveVoiceExpression } from '../lib/voice/review'
 import { VoiceFeedbackReview } from './VoiceFeedbackReview'
+import { useVoiceHistory } from '../lib/voice/useVoiceHistory'
+import { VoiceHistory } from './VoiceHistory'
 
 const PHASE_LABELS: Record<VoiceSnapshot['phase'], string> = {
   idle: '准备开始', connecting: '正在连接', ready: '对话已连接', listening: '正在听你说', thinking: 'AI 正在思考', speaking: 'AI 正在回复', paused: '对话已暂停', resuming: '正在恢复麦克风', ended: '练习已结束', error: '连接未完成',
@@ -39,6 +41,7 @@ function RealtimeVoicePractice({ items, accent, selection, onSelection, onBack, 
   const scenarioDescription = selection.descriptions[scenario]?.trim() ?? ''
   const liveFeedbackAvailable = hasDeepseekApiKey()
   const hasTurns = snapshot.turns.length > 0
+  const history = useVoiceHistory()
   const previousReplies = useMemo(() => {
     let previous = ''
     const contexts: string[] = []
@@ -86,10 +89,19 @@ function RealtimeVoicePractice({ items, accent, selection, onSelection, onBack, 
     setFeedback(null)
     setMessage('')
     setSnapshot(EMPTY_VOICE_SNAPSHOT)
+    history.begin({ mode: 'realtime', scenario, description: scenarioDescription, difficulty })
+    let savedTurns = EMPTY_VOICE_SNAPSHOT.turns
     const call = new VoiceSession({
       audio: audioRef.current, scenario, scenarioDescription, difficulty, accent,
       words: selectedWords.map(({ expression, zhGloss }) => ({ expression, zhGloss })),
-      onChange: (next) => { if (sessionRef.current === call) setSnapshot(next) },
+      onChange: (next) => {
+        if (sessionRef.current !== call) return
+        setSnapshot(next)
+        if (next.turns.length && (next.turns !== savedTurns || ['ended', 'paused', 'error'].includes(next.phase))) {
+          savedTurns = next.turns
+          history.save({ turns: next.turns, elapsedSeconds: next.elapsedSeconds })
+        }
+      },
       onLevel: (level) => meterRef.current?.update(level),
     })
     sessionRef.current = call
@@ -105,7 +117,7 @@ function RealtimeVoicePractice({ items, accent, selection, onSelection, onBack, 
     setMessage('')
     try {
       const result = await generateVoiceFeedback(snapshot.turns, controller.signal)
-      if (!controller.signal.aborted) setFeedback(result)
+      if (!controller.signal.aborted) { setFeedback(result); history.save({ feedback: result }) }
     } catch (error) {
       if (!controller.signal.aborted) setMessage(error instanceof Error ? error.message : '反馈生成失败，请手动重试。')
     } finally { if (!controller.signal.aborted) setFeedbackBusy(false) }
@@ -149,7 +161,7 @@ function RealtimeVoicePractice({ items, accent, selection, onSelection, onBack, 
             <span>{turn.role === 'user' ? '你' : 'AI 陪练'}</span>
             <div className="voice-turn-content">
               <p>{turn.text || (active ? '正在识别…' : '未收到转写')}</p>
-              {liveFeedbackAvailable && turn.role === 'user' && turn.final && !turn.interrupted && turn.text.trim() && <VoiceTurnFeedback key={turn.text} text={turn.text} previousReply={previousReplies[index]} onSave={onSaveExpression} />}
+              {liveFeedbackAvailable && turn.role === 'user' && turn.final && !turn.interrupted && turn.text.trim() && <VoiceTurnFeedback key={turn.text} text={turn.text} previousReply={previousReplies[index]} onSave={onSaveExpression} onResult={(corrections) => history.corrections(turn.id, corrections)} />}
             </div>
             {turn.interrupted ? <small>被打断 · 字幕可能包含未播放内容</small> : !turn.final ? <small>{active ? '文字生成中…' : '转写未完成'}</small> : null}
           </div>)}</div>}
@@ -166,6 +178,8 @@ function RealtimeVoicePractice({ items, accent, selection, onSelection, onBack, 
           <button className="mini-text-button" disabled={!connected || snapshot.phase !== 'ready'} onClick={() => sessionRef.current?.requestHelp('hint')} type="button">给点提示</button>
         </div>
         <p className="voice-footnote">暂停时关闭麦克风并停止播放，保留当前对话；继续后由你接着说。口语对话本身不计为词汇掌握。确认并加入复习的表达，会按每日新词数量安排。字幕可能存在偏差。</p>
+        <p className="voice-footnote">字幕和反馈自动保存在本机，可从「练习历史」回看或删除；实时畅聊不保存录音。</p>
+        {history.status && <p className="voice-notice" role="status">{history.status}{history.status.includes('失败') && <button type="button" className="mini-text-button" onClick={history.retry}>重试保存</button>}</p>}
         <p className="voice-footnote">{liveFeedbackAvailable ? '实时纠错已开启：每句转写完成后自动发送本句和上一条完整 AI 发言给 DeepSeek，结果显示在原句旁。仅检查文字表达，可能稍有延迟；不上传录音。' : '在学习设置中配置 DeepSeek 后可自动逐句纠错；语音对话可照常进行。'}</p>
       </div>
     </div>
@@ -194,5 +208,6 @@ export function VoicePractice({ items, accent, onRequestLogin, onSaveExpression,
       <button className="voice-mode-card voice-mode-message" onClick={() => setMode('messages')} type="button"><span className="voice-mode-number">02 / MESSAGES</span><span className="voice-mode-icon" aria-hidden="true">▤</span><strong>语音消息</strong><span>录好一条再发送，AI 也用语音回复。</span><small>慢慢组织表达，每条都能回听 <span aria-hidden="true">↗</span></small></button>
     </div>
     <p className="voice-mode-note">两种方式共用场景、难度和词汇设置，应用不限制练习时长。实时畅聊可随时暂停，结束后可生成表达反馈。百炼单次连接最长 120 分钟。</p>
+    {!onRequestLogin && <VoiceHistory onSaveExpression={onSaveExpression} />}
   </section>
 }

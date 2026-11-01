@@ -1,11 +1,12 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useEffectEvent, useState } from 'react'
 import { generateVoiceTurnFeedback, type VoiceFeedback } from '../lib/voice/feedback'
 import type { SaveVoiceExpression as SaveAction } from '../lib/voice/review'
 import { SaveVoiceExpression } from './SaveVoiceExpression'
 
 type Result = { attempt: number } & ({ corrections: VoiceFeedback['corrections']; failed?: false } | { failed: true })
 
-export function VoiceTurnFeedback({ text, previousReply, onSave }: { text: string; previousReply: string; onSave?: SaveAction }) {
+export function VoiceTurnFeedback({ text, previousReply, onSave, onResult }: { text: string; previousReply: string; onSave?: SaveAction; onResult?: (corrections: VoiceFeedback['corrections']) => void }) {
+  const reportResult = useEffectEvent((corrections: VoiceFeedback['corrections']) => onResult?.(corrections))
   // Freeze context when this finalized utterance appears; later AI subtitles must not recheck it.
   const [context] = useState(previousReply)
   const [attempt, setAttempt] = useState(0)
@@ -20,7 +21,7 @@ export function VoiceTurnFeedback({ text, previousReply, onSave }: { text: strin
       if (controller.signal.aborted) return
       try {
         const corrections = await generateVoiceTurnFeedback(text, context, controller.signal)
-        if (!controller.signal.aborted) setResult({ attempt, corrections })
+        if (!controller.signal.aborted) { setResult({ attempt, corrections }); reportResult(corrections) }
       } catch {
         if (!controller.signal.aborted) setResult({ attempt, failed: true })
       }

@@ -7,6 +7,7 @@ import { EMPTY_VOICE_SNAPSHOT, VoiceSession } from '../lib/voice/session'
 import type { VoiceTurn } from '../lib/voice/transcript'
 import { chatJson } from '../lib/llm/client'
 import { clearDeepseekApiKey, setDeepseekApiKey } from '../lib/llm/config'
+import { clearVoiceHistory, listVoiceHistory, readVoiceHistory } from '../lib/voice/history'
 
 vi.mock('../lib/llm/client', () => ({ chatJson: vi.fn() }))
 
@@ -22,7 +23,7 @@ vi.mock('../lib/voice/session', async (original) => {
   }) }
 })
 
-afterEach(() => { cleanup(); clearDeepseekApiKey(); vi.unstubAllGlobals(); vi.clearAllMocks(); vi.mocked(chatJson).mockReset() })
+afterEach(async () => { cleanup(); await clearVoiceHistory(); clearDeepseekApiKey(); vi.unstubAllGlobals(); vi.clearAllMocks(); vi.mocked(chatJson).mockReset() })
 
 const spoken = (id: string, text: string, role: VoiceTurn['role'] = 'user'): VoiceTurn => ({ id, text, role, final: true, interrupted: false })
 const grammarCorrection = { original: 'I goes to work.', improved: 'I go to work.', explanationZh: '主语 I 后用动词原形 go。' }
@@ -41,6 +42,23 @@ async function startLivePractice(configured = true, strict = false) {
 }
 
 describe('live voice corrections', () => {
+  it('saves live subtitles and corrections and restores them for review without another AI request', async () => {
+    vi.mocked(chatJson).mockResolvedValue({ corrections: [grammarCorrection] })
+    const { emit, unmount, user } = await startLivePractice()
+    emit([spoken('u1', grammarCorrection.original)])
+    await screen.findByText(grammarCorrection.improved)
+    await waitFor(async () => {
+      const records = await listVoiceHistory()
+      expect(records).toHaveLength(1)
+      expect((await readVoiceHistory(records[0].id))?.corrections.u1).toEqual([grammarCorrection])
+    })
+    unmount()
+    render(<VoicePractice items={[]} accent="uk" />)
+    await user.click(await screen.findByRole('button', { name: /回看练习/ }))
+    expect((await screen.findAllByText(grammarCorrection.original)).length).toBeGreaterThan(0)
+    expect(screen.getByText(grammarCorrection.improved)).toBeInTheDocument()
+    expect(chatJson).toHaveBeenCalledTimes(1)
+  })
   it('keeps delayed feedback visible at the bottom without interrupting history reading', async () => {
     let resize!: () => void
     const disconnect = vi.fn()
