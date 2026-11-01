@@ -11,6 +11,8 @@ import { CLOUD_DATA_CHANGED } from '../lib/cloud/types'
 import { useEscapeToClose } from '../lib/useEscapeToClose'
 import { useFocusTrap } from '../lib/useFocusTrap'
 import type { AppTab } from './AppShell'
+import { createVoiceHistorySync, type VoiceCloudState } from '../lib/voice/historyCloud'
+import { createVoiceHistoryTransport } from '../lib/voice/historyTransport'
 
 export const CLOUD_APPLIED = 'recall-cloud-data-applied'
 
@@ -180,6 +182,8 @@ function AccountWorkspace({ client, email, onSignOut, initialTab, accountError }
   const remotePending = useRef(false)
   const [workspaceBusy, setWorkspaceBusy] = useState(false)
   const engine = useRef<ReturnType<typeof createCloudSync> | null>(null)
+  const voiceEngine = useRef<ReturnType<typeof createVoiceHistorySync> | null>(null)
+  const [voiceState, setVoiceState] = useState<VoiceCloudState>({ phase: 'waiting', message: '语音历史等待同步' })
   const onReady = useCallback(() => setAppReady(true), [])
   const onBusyChange = useCallback((value: boolean) => {
     busy.current = value
@@ -217,16 +221,18 @@ function AccountWorkspace({ client, email, onSignOut, initialTab, accountError }
       setCacheReady(true)
       engine.current = createCloudSync({ transport, onState: setState, onApplied: notify, isBusy: () => busy.current })
       engine.current.start()
+      voiceEngine.current = createVoiceHistorySync({ transport: createVoiceHistoryTransport(client, getDatabaseAccount()!), onState: setVoiceState })
+      voiceEngine.current.start()
     }).catch(() => { if (active) setState({ phase: 'error', message: '账号缓存无法恢复，请重新载入页面。', conflicts: [] }) })
-    return () => { active = false; engine.current?.stop(); engine.current = null; window.removeEventListener(CLOUD_DATA_CHANGED, broadcast.notify); broadcast.close(); setDatabaseTrackingEnabled(false) }
+    return () => { active = false; engine.current?.stop(); engine.current = null; voiceEngine.current?.stop(); voiceEngine.current = null; window.removeEventListener(CLOUD_DATA_CHANGED, broadcast.notify); broadcast.close(); setDatabaseTrackingEnabled(false) }
   }, [appReady, client])
   async function resolve(conflict: CloudConflict, keepLocal: boolean) {
     try { await engine.current?.resolve(conflict, keepLocal) }
     catch { setState(previous => ({ ...previous, message: '内容又有更新，请重新同步后处理冲突。' })) }
   }
   return <>
-    <div className="cloud-account-bar"><span>{email}</span><span role="status">{state.message}</span>
-      <button type="button" onClick={() => { if (!cacheReady) window.location.reload(); else void engine.current?.sync() }} disabled={(!cacheReady && state.phase !== 'error') || state.phase === 'syncing'}>{!cacheReady && state.phase === 'error' ? '重新载入' : '同步'}</button>
+    <div className="cloud-account-bar"><span>{email}</span><span role="status">{state.message}{cacheReady ? ` · ${voiceState.message}` : ''}</span>
+      <button type="button" onClick={() => { if (!cacheReady) window.location.reload(); else { void engine.current?.sync(); void voiceEngine.current?.sync() } }} disabled={(!cacheReady && state.phase !== 'error') || state.phase === 'syncing' || voiceState.phase === 'syncing'}>{!cacheReady && state.phase === 'error' ? '重新载入' : '同步'}</button>
       <button type="button" onClick={onSignOut} disabled={workspaceBusy || state.phase === 'syncing'}>退出登录</button>
     </div>
     {accountError && !workspaceBusy && <p className="auth-error" role="alert">{accountError}</p>}
@@ -238,7 +244,7 @@ function AccountWorkspace({ client, email, onSignOut, initialTab, accountError }
       </div>)}
     </section>}
     {!cacheReady && appReady && <p className="cloud-cache-wait" role="status">正在恢复账号数据…</p>}
-    <div inert={appReady && !cacheReady ? true : undefined}><App initialTab={initialTab} onReady={onReady} onBusyChange={onBusyChange} dataReady={cacheReady && state.phase === 'synced'} account={{ email, error: accountError, syncMessage: state.message, onSignOut, signOutDisabled: state.phase === 'syncing', onResetPassword: async () => {
+    <div inert={appReady && !cacheReady ? true : undefined}><App initialTab={initialTab} onReady={onReady} onBusyChange={onBusyChange} dataReady={cacheReady && state.phase === 'synced'} account={{ email, error: accountError, syncMessage: `${state.message} · ${voiceState.message}`, onSignOut, signOutDisabled: state.phase === 'syncing', onResetPassword: async () => {
       const result = await client.auth.resetPasswordForEmail(email, { redirectTo: `${window.location.origin}/auth/update-password` })
       if (result.error) throw result.error
     } }} /></div>

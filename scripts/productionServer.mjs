@@ -4,6 +4,7 @@ import { dirname, extname, join, resolve, sep } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { randomUUID } from 'node:crypto'
 import { createVoiceHandler } from './qwenVoiceServer.mjs'
+import { cleanupVoiceHistory } from './voiceHistoryCleanup.mjs'
 
 const MIME = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.json': 'application/json; charset=utf-8', '.svg': 'image/svg+xml', '.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.webp': 'image/webp', '.ico': 'image/x-icon', '.woff': 'font/woff', '.woff2': 'font/woff2', '.mp3': 'audio/mpeg', '.wav': 'audio/wav' }
 function send(res, status, value) {
@@ -80,6 +81,11 @@ export function createProductionServer({ env = process.env, fetch: request = glo
       if (path === '/api' || path.startsWith('/api/')) {
         if ((req.headers.origin && req.headers.origin !== origin) || req.headers['sec-fetch-site'] === 'cross-site' || (!['GET', 'HEAD'].includes(req.method) && req.headers.origin !== origin)) { fail(res, 403, 'origin'); return }
         if (!(await authenticate(req, res))) return
+        if (path === '/api/voice-history/cleanup' && req.method === 'POST' && !url.search) {
+          try { send(res, 200, await cleanupVoiceHistory({ userId: req.authUserId, supabase, secret: env.SUPABASE_SECRET_KEY, call })) }
+          catch { fail(res, 503, 'voice-cleanup-unavailable') }
+          return
+        }
         if (await voice(req, res)) return
         const dictionary = /^\/api\/dictionary\/api\/v2\/entries\/en\/([^/]+)$/.exec(path)
         if (dictionary && req.method === 'GET' && !url.search) {

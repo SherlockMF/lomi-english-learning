@@ -1,9 +1,11 @@
 import { getDatabase } from '../db'
 import type { VoiceFeedback } from './feedback'
 import type { VoiceTurn } from './transcript'
+import { notifyVoiceHistory, queueVoiceHistory, VOICE_CLEAR_KEY } from './historyCloudStorage'
 
 export interface SavedVoiceTurn extends VoiceTurn {
   audio?: Blob
+  audioPath?: string
   duration?: number
   status?: 'sending' | 'sent' | 'failed'
 }
@@ -37,14 +39,16 @@ export function createVoiceHistoryWriter(metadata: VoiceHistoryMetadata) {
     const snapshot = record
     const write = pending.then(async () => {
       const db = await database
-      const tx = db.transaction('voiceHistory', 'readwrite')
-      const previous = await tx.store.get(snapshot.id)
+      const tx = db.transaction(['voiceHistory', 'cloudMeta'], 'readwrite')
+      const previous = await tx.objectStore('voiceHistory').get(snapshot.id)
       if (previous && 'deleted' in previous) {
         await tx.done
         throw new Error('这次练习已被删除。')
       }
-      await tx.store.put(snapshot)
-      return tx.done
+      await tx.objectStore('voiceHistory').put(snapshot)
+      await queueVoiceHistory(tx, snapshot.id)
+      await tx.done
+      notifyVoiceHistory()
     })
     pending = write.catch(() => undefined)
     return write
@@ -82,16 +86,23 @@ export async function readVoiceHistory(id: string) {
 }
 export async function deleteVoiceHistory(id: string) {
   // Keep only the random id to prevent another tab's pending write from restoring deleted content.
-  await (await getDatabase()).put('voiceHistory', { id, deleted: true })
+  const tx = (await getDatabase()).transaction(['voiceHistory', 'cloudMeta'], 'readwrite')
+  await tx.objectStore('voiceHistory').put({ id, deleted: true })
+  await queueVoiceHistory(tx, id)
+  await tx.done
+  notifyVoiceHistory()
 }
 export async function clearVoiceHistory() {
-  const tx = (await getDatabase()).transaction('voiceHistory', 'readwrite')
-  let cursor = await tx.store.openCursor()
+  const tx = (await getDatabase()).transaction(['voiceHistory', 'cloudMeta'], 'readwrite')
+  await tx.objectStore('cloudMeta').put({ key: VOICE_CLEAR_KEY, value: crypto.randomUUID() })
+  let cursor = await tx.objectStore('voiceHistory').openCursor()
   while (cursor) {
     // oxlint-disable-next-line no-await-in-loop -- Replace each record before advancing the same cursor.
     await cursor.update({ id: cursor.value.id, deleted: true })
+    await queueVoiceHistory(tx, cursor.value.id)
     // oxlint-disable-next-line no-await-in-loop -- An IndexedDB cursor must advance sequentially.
     cursor = await cursor.continue()
   }
   await tx.done
+  notifyVoiceHistory()
 }

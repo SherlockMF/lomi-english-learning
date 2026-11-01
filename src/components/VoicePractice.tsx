@@ -178,7 +178,7 @@ function RealtimeVoicePractice({ items, accent, selection, onSelection, onBack, 
           <button className="mini-text-button" disabled={!connected || snapshot.phase !== 'ready'} onClick={() => sessionRef.current?.requestHelp('hint')} type="button">给点提示</button>
         </div>
         <p className="voice-footnote">暂停时关闭麦克风并停止播放，保留当前对话；继续后由你接着说。口语对话本身不计为词汇掌握。确认并加入复习的表达，会按每日新词数量安排。字幕可能存在偏差。</p>
-        <p className="voice-footnote">字幕和反馈自动保存在本机，可从「练习历史」回看或删除；实时畅聊不保存录音。</p>
+        <p className="voice-footnote">字幕和反馈自动保存在本机，登录账号时会同步云端，可从「练习历史」回看或删除；实时畅聊不保存录音。</p>
         {history.status && <p className="voice-notice" role="status">{history.status}{history.status.includes('失败') && <button type="button" className="mini-text-button" onClick={history.retry}>重试保存</button>}</p>}
         <p className="voice-footnote">{liveFeedbackAvailable ? '实时纠错已开启：每句转写完成后自动发送本句和上一条完整 AI 发言给 DeepSeek，结果显示在原句旁。仅检查文字表达，可能稍有延迟；不上传录音。' : '在学习设置中配置 DeepSeek 后可自动逐句纠错；语音对话可照常进行。'}</p>
       </div>

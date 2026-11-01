@@ -250,7 +250,7 @@ export function VoiceMessages({ items, accent, selection, onSelection, onBack, o
           </div>
           <div className="voice-call-actions"><button className="secondary-button" type="button" onClick={() => end()}>{phase === 'connecting' ? '取消连接' : '结束练习'}</button></div>
         </> : <div className="voice-call-actions"><button type="button" className="primary-button" disabled={(!onRequestLogin && !config?.configured) || feedbackBusy} onClick={() => void start()}>{phase === 'idle' ? '开始语音消息练习' : '重新开始语音消息练习'}</button></div>}
-        <p className="voice-footnote">语音和文字自动保存在本机，刷新后可从「练习历史」回看、回听或删除。费用以百炼控制台为准。</p>
+        <p className="voice-footnote">语音和文字自动保存在本机，登录账号时会同步云端；刷新后可从「练习历史」回看、回听或删除。费用以百炼控制台为准。</p>
         {history.status && <p className="voice-notice" role="status">{history.status}{history.status.includes('失败') && <button type="button" className="mini-text-button" onClick={history.retry}>重试保存</button>}</p>}
       </div>
     </div>
