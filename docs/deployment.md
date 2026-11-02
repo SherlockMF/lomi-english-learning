@@ -57,11 +57,14 @@ on conflict (user_id) do update set active = true;
 
 ## 4. 创建 Render 服务
 
+源码仓库为 [`SherlockMF/lomi-english-learning`](https://github.com/SherlockMF/lomi-english-learning)，统一使用 `master` 分支。仓库原名为 `recall-english`，Render 服务名仍保留 `recall-english`。已有服务在下次手动发布前，先核对 Settings 中的 GitHub 仓库和 Branch；如果仍绑定已删除的 `codex/render-supabase` 等分支，应切换到 `master`，并保持 Auto Deploy 关闭。修改仓库文件不会自动更新现有服务的后台绑定；更名本身不需要重建服务或数据库。
+
 以仓库根目录的 [render.yaml](../render.yaml) 创建新的 Blueprint。核对名称不会匹配并更新已有同名服务。Blueprint 创建会执行首次部署，确认前先完成变量填写与数据库准备；后续自动发布已关闭，需要管理员手动 Deploy。不要在 Blueprint 中自动执行数据库迁移或导入。
 
 | 设置 | 值 |
 | --- | --- |
 | Runtime / Region | Node / Singapore |
+| Branch | `master` |
 | Instance | Free，单实例试运行 |
 | Node | `NODE_VERSION=22.x` |
 | Build Command | `npm ci && npm run build` |

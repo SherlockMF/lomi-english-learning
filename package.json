@@ -1,8 +1,14 @@
 {
-  "name": "recall-english",
+  "name": "lomi-english-learning",
   "private": true,
   "version": "0.1.0",
-  "description": "Lomi English — local-first active-recall English study for Malaysian campus, business, and finance/accounting.",
+  "description": "Lomi English — AI English speaking practice, vocabulary learning, active recall, and FSRS spaced repetition with optional Supabase sync.",
+  "homepage": "https://english.lomivex.top",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/SherlockMF/lomi-english-learning.git"
+  },
+  "keywords": ["english-learning", "ai-speaking-practice", "vocabulary", "active-recall", "fsrs", "spaced-repetition", "deepseek", "qwen", "supabase"],
   "type": "module",
   "scripts": {
     "dev": "vite",

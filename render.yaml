@@ -2,6 +2,7 @@
 services:
   - type: web
     name: recall-english
+    branch: master
     runtime: node
     region: singapore
     plan: free

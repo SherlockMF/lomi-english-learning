@@ -1,14 +1,19 @@
-# Lomi English · 洛米英语
+# Lomi English · 洛米英语 — AI 口语陪练与 FSRS 英语学习
 
-本地优先的主动回忆英语学习网页：不靠选择题，用「想起再说出」巩固表达。
+[English](README.en.md) · [在线访问](https://english.lomivex.top) · [部署手册](docs/deployment.md)
 
-面向马来西亚大学生活、商业沟通，以及金融 / 会计专业场景。学习进度保存在当前浏览器（IndexedDB），可选 DeepSeek 辅助判分与补全。
+**Lomi English（洛米英语）**是一款本地优先的英语学习 Web 应用，将 **AI 英语口语陪练、单词与表达学习、主动回忆（Active Recall）和 FSRS 间隔重复（Spaced Repetition）**结合起来。不靠选择题，用「想起再说出」巩固表达，面向日常生活、马来西亚大学生活、商务英语及金融 / 会计场景。
+
+本地模式将学习进度保存在当前浏览器（IndexedDB）；邀请制云模式通过 Supabase 同步账号学习数据和口语历史。DeepSeek 提供可选的表达反馈与语义判分，Qwen 提供实时语音对话和语音消息练习。在线站点可先浏览，云端学习与 AI 服务需受邀账号；套餐页仅为预览，尚未开放购买。
+
+**English:** A local-first English learning app with AI speaking practice, vocabulary study, active recall, and FSRS spaced repetition. Built with React, TypeScript, DeepSeek, Qwen, and optional Supabase sync.
 
 | | |
 | --- | --- |
 | **产品名** | Lomi English · 洛米英语 |
-| **仓库** | `recall-english` |
-| **npm 包名** | `recall-english` |
+| **仓库** | [`SherlockMF/lomi-english-learning`](https://github.com/SherlockMF/lomi-english-learning) |
+| **主分支** | `master`（统一维护分支） |
+| **npm 包名** | `lomi-english-learning`（私有应用包，不发布到 npm） |
 | **版本** | 0.1.0（词库 **V5.3**，内容修订 **5.3.2**） |
 | **技术栈** | React 19 · Vite · TypeScript · IndexedDB (`idb`) · FSRS (`ts-fsrs`) |
 
@@ -34,12 +39,18 @@
 
 ## 快速开始
 
+需要 **Node.js 22+、npm 和 Git**。推荐使用与 CI 一致的 Node.js 22。
+
 ```bash
-npm install
+git clone https://github.com/SherlockMF/lomi-english-learning.git
+cd lomi-english-learning
+npm ci
 npm run dev
 ```
 
-浏览器打开 Vite 输出的本地地址即可。首次启动会把缺失的种子词写入 IndexedDB。
+浏览器打开 Vite 输出的本地地址即可。首次启动会把缺失的种子词写入 IndexedDB。基础词汇学习和 FSRS 复习无需 AI Key；口语陪练、AI 反馈需要另行配置对应服务，调用费用由服务商收取。本地模式不填写 Supabase 构建变量。
+
+仓库原名为 `recall-english`。已有克隆无需重新下载，在仓库目录执行 `git remote set-url origin https://github.com/SherlockMF/lomi-english-learning.git`，然后 `git fetch origin --prune`。GitHub 统一使用 `master`，原功能分支历史已合入。内部数据库标识、备份文件名及 Render 服务名沿用旧名，避免影响已有数据和部署。
 
 ### 部署到 english.lomivex.top
 
@@ -177,7 +188,12 @@ scripts/                 # 词包构建、质量闸、macOS 快捷方式等
 
 ## 许可与隐私
 
-本仓库默认按作者用途分发；API Key 与学习数据均留在本机，不会上传到本项目自身的服务器。使用第三方词典 / AI 服务时，查询内容会发往对应服务商，请自行遵守其条款。
+本仓库尚未提供独立的开源 LICENSE；公开可见不代表已授予任意再分发或商业使用许可。第三方依赖与词表遵循各自许可，词级数据来源见 [词级说明](data/word-levels/README.md)。
+
+- **本地模式**：学习数据保存在浏览器，DeepSeek Key 按浏览器地址保存，口语凭证由本机服务保存。学习备份不含 Key，也不包含口语历史及录音。
+- **云端模式**：账号学习数据、口语文字与反馈同步到 Supabase；语音消息录音保存在私有 Storage，换设备时按需下载。AI 服务凭证由服务端管理。
+- **第三方服务**：查词、AI 判分和口语练习会向对应词典或 AI 服务商发送必要的查询、文字或音频。使用前应了解其条款与费用。详细数据与部署边界见 [部署手册](docs/deployment.md)。
+
 ## 词汇难度与已会
 
 难度覆盖、已会标记和学习证据均按独立义项 Word.id 保存，而不是按英文拼写合并。例如 interest 的兴趣义与利息义可以分别设级、分别跳过。公开词表按词头/词性提供基础参考，界面明确标注「词头参考，义项可修正」。同词同词性的不同义项不会被宣称拥有已验证的同一等级；当前支持逐义项人工修正。未来模型分级需输入完整定义、中文义项及例句，按义项保存模型、来源和置信度，Jev 尚未接入。
