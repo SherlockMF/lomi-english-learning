@@ -195,7 +195,7 @@ function RealtimeVoicePractice({ items, accent, selection, onSelection, onBack, 
   </section>
 }
 
-export function VoicePractice({ items, accent, onRequestLogin, onSaveExpression, learningGoal }: { items: VocabularyItem[]; accent: SpeechAccent; onRequestLogin?: () => void; onSaveExpression?: SaveVoiceExpression; learningGoal?: SystemListSlug }) {
+export function VoicePractice({ items, accent, onRequestLogin, onSaveExpression, learningGoal, trial }: { items: VocabularyItem[]; accent: SpeechAccent; onRequestLogin?: () => void; onSaveExpression?: SaveVoiceExpression; learningGoal?: SystemListSlug; trial?: boolean }) {
   const [mode, setMode] = useState<'realtime' | 'messages' | null>(null)
   const [selection, setSelection] = useState(() => ({ ...DEFAULT_VOICE_SELECTION, scenario: learningGoal === 'accounting' ? 'finance' as const : learningGoal ?? DEFAULT_VOICE_SELECTION.scenario }))
   const shared = { items, accent, selection, onSelection: setSelection, onBack: () => setMode(null), onRequestLogin, onSaveExpression }
@@ -204,10 +204,10 @@ export function VoicePractice({ items, accent, onRequestLogin, onSaveExpression,
   return <section className="voice-page" aria-labelledby="voice-title">
     <header className="voice-heading"><div><p className="eyebrow">SPEAK A LITTLE, EVERY DAY</p><h1 id="voice-title">把学过的英语，说出来。</h1><p>今天想怎么练？选择一种方式，从真实场景开始。</p></div><span className="voice-provider">千问语音 · 北京</span></header>
     <div className="voice-mode-cards">
-      <button className="voice-mode-card" onClick={() => setMode('realtime')} type="button"><span className="voice-mode-number">01 / LIVE</span><span className="voice-mode-icon"><Icon name="mic" size={32} /></span><strong>实时畅聊</strong><span>边说边回应，自然接话，也可以插话。</span><small>练习反应速度与连续表达 <span aria-hidden="true">↗</span></small></button>
+      {!trial && <button className="voice-mode-card" onClick={() => setMode('realtime')} type="button"><span className="voice-mode-number">01 / LIVE</span><span className="voice-mode-icon"><Icon name="mic" size={32} /></span><strong>实时畅聊</strong><span>边说边回应，自然接话，也可以插话。</span><small>练习反应速度与连续表达 <span aria-hidden="true">↗</span></small></button>}
       <button className="voice-mode-card voice-mode-message" onClick={() => setMode('messages')} type="button"><span className="voice-mode-number">02 / MESSAGES</span><span className="voice-mode-icon" aria-hidden="true">▤</span><strong>语音消息</strong><span>录好一条再发送，AI 也用语音回复。</span><small>慢慢组织表达，每条都能回听 <span aria-hidden="true">↗</span></small></button>
     </div>
-    <p className="voice-mode-note">两种方式共用场景、难度和词汇设置，应用不限制练习时长。实时畅聊可随时暂停，结束后可生成表达反馈。百炼单次连接最长 120 分钟。</p>
+    <p className="voice-mode-note">{trial ? '试用语音按已发送的录音时长计入额度。剩余额度和到期日可在套餐页查看。' : '两种方式共用场景、难度和词汇设置。实时畅聊可随时暂停，结束后可生成表达反馈。百炼单次连接最长 120 分钟。'}</p>
     {!onRequestLogin && <VoiceHistory onSaveExpression={onSaveExpression} />}
   </section>
 }

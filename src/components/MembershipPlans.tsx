@@ -1,3 +1,5 @@
+import { useEffect, useState } from 'react'
+import type { CloudMembership } from '../lib/cloud/client'
 import { Icon } from './Icon'
 
 const plans = [
@@ -11,14 +13,34 @@ const plans = [
 
 const included = ['口语内逐句纠错与课后总结', '口语表达确认后加入复习', '完整词库、常规复习与学习记录', '相同的标准口语模型质量']
 
-export function MembershipPlans({ onExplore }: { onExplore: () => void }) {
+export function MembershipPlans({ onExplore, membership, refreshMembership }: {
+  onExplore: () => void
+  membership?: CloudMembership | null
+  refreshMembership?: () => Promise<CloudMembership | null>
+}) {
+  const [balance, setBalance] = useState<CloudMembership | null>(null)
+  const [balanceError, setBalanceError] = useState(false)
+  useEffect(() => {
+    if (!refreshMembership) return
+    let active = true
+    void refreshMembership().then(value => { if (active) { setBalance(value); setBalanceError(!value) } })
+      .catch(() => { if (active) setBalanceError(true) })
+    return () => { active = false }
+  }, [refreshMembership])
+  const seconds = balance ? Math.floor(balance.voice_ms / 1000) : 0
   return <section className="page-stack membership-page" aria-labelledby="membership-title">
     <header className="membership-heading">
       <div><p className="eyebrow">A LITTLE ENGLISH, EVERY DAY</p><h1 id="membership-title">给每天的英语，留一点时间。</h1><p>从轻量开口，到认真练习。按你的节奏，了解适合自己的方案。</p></div>
       <span className="membership-preview-label">套餐预览</span>
     </header>
 
-    <div className="membership-notice"><Icon name="clock" size={20} aria-hidden="true" /><p><strong>暂未开放购买。</strong>以下为拟推出的月度套餐，当前使用不受影响；每日时长和积分规则尚未启用。</p></div>
+    {membership && <div className="membership-notice"><Icon name="clock" size={20} aria-hidden="true" /><p>
+      <strong>{membership.plan === 'standard' ? '标准档 · 永久' : '15 天免费试用'}</strong>
+      {balance ? <> · 剩余语音消息 {Math.floor(seconds / 60)} 分 {seconds % 60} 秒 · {balance.credits.toLocaleString('zh-CN')} 积分
+        {balance.expires_at && (balance.trial_expired ? ' · 试用已结束' : ` · ${new Date(balance.expires_at).toLocaleString('zh-CN', { dateStyle: 'medium', timeStyle: 'short' })} 到期`)}
+      </> : <span role="status">{balanceError ? ' · 暂时无法查询余额' : ' · 正在查询余额…'}</span>}
+    </p></div>}
+    <div className="membership-notice"><Icon name="clock" size={20} aria-hidden="true" /><p><strong>暂未开放购买。</strong>以下月度套餐供预览。</p></div>
 
     <div className="membership-grid">
       {plans.map(plan => <article key={plan.id} aria-labelledby={`plan-${plan.id}`} className={`membership-card${plan.recommended ? ' membership-card-recommended' : ''}`}>
@@ -41,11 +63,10 @@ export function MembershipPlans({ onExplore }: { onExplore: () => void }) {
     </section>
 
     <section className="membership-rules" aria-labelledby="membership-rules-title">
-      <h2 id="membership-rules-title">未来的额度，怎样使用？</h2>
-      <p>以下为套餐开放后的计划规则，当前不会据此计时限额或扣积分。价格币种为马来西亚林吉特（MYR）。</p>
-      <details><summary>每日口语与通用积分，有什么区别？</summary><p>每日口语包含练习中的逐句纠错和课后总结，不消耗通用积分。通用积分用于文字 AI 辅助，或每日口语用完后的额外练习；不同任务按实际模型用量折算积分，不按固定调用次数计费。额外口语会先提示，由你确认后再用积分。</p></details>
-      <details><summary>额度什么时候刷新？</summary><p>每日口语计划按马来西亚时间 00:00 刷新，当天未用完不累计。月度通用积分按会员周期刷新，未用完不滚存；暂停、断线和服务等待不计入练习时间。</p></details>
-      <details><summary>现在能开通套餐吗？</summary><p>目前仅展示方案，尚未开放购买或会员开通，也不会自动收费。你可以继续按现有方式浏览和练习，开始个人学习或口语练习时需登录受邀账号。</p></details>
+      <h2 id="membership-rules-title">额度怎样使用？</h2>
+      <details><summary>语音消息和积分怎么算？</summary><p>语音消息按发送的录音时长扣除。文字 AI 每使用 100 个模型 token 扣 1 积分，零头向上取整。</p></details>
+      <details><summary>额度什么时候刷新？</summary><p>试用的 10 分钟语音消息和 1,000 积分是 15 天总额。标准档的语音消息按马来西亚时间每日 00:00 刷新，积分在每月 1 日刷新。</p></details>
+      <details><summary>用完额度后还能学习吗？</summary><p>可以继续学习、复习、同步和回听已保存的录音。套餐尚未开放购买。</p></details>
     </section>
 
     <div className="membership-footer"><p>先找到自己的节奏，再选择适合的方案。</p><button className="secondary-button" type="button" onClick={onExplore}>去口语页看看<Icon name="arrow" size={17} aria-hidden="true" /></button></div>

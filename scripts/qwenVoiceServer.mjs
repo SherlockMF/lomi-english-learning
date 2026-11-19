@@ -73,9 +73,9 @@ function persistCredentials(path, value) {
   }
 }
 
-export function createVoiceHandler({ env = process.env, fetch: request = globalThis.fetch, credentialFile, messageConnect, productionOrigin, reserveUsage } = {}) {
+export function createVoiceHandler({ env = process.env, fetch: request = globalThis.fetch, credentialFile, messageConnect, productionOrigin, reserveUsage, canStartVoice, reserveVoiceTurn } = {}) {
   if (productionOrigin && typeof reserveUsage !== 'function') throw new Error('Production voice quota is required')
-  const messages = createVoiceMessageHandler({ connect: messageConnect, production: Boolean(productionOrigin), reserveUsage })
+  const messages = createVoiceMessageHandler({ connect: messageConnect, production: Boolean(productionOrigin), reserveUsage, canStartVoice, reserveVoiceTurn })
   const rateStates = new Map()
   let savedCredentials
   let storageError = false
@@ -183,7 +183,12 @@ export function createVoiceHandler({ env = process.env, fetch: request = globalT
       if (controller.signal.aborted) throw new Error('aborted')
       if (productionOrigin) {
         let allowed
-        try { allowed = await reserveUsage(req.authUserId, 'voice_session') } catch { fail(res, 503, 'quota-unavailable', '暂时无法检查口语额度。'); return true }
+        try {
+          if (canStartVoice && !(await canStartVoice(req.authUserId, true))) {
+            fail(res, 403, 'voice-mode', '试用口语请使用语音消息模式。'); return true
+          }
+          allowed = await reserveUsage(req.authUserId, 'voice_session')
+        } catch { fail(res, 503, 'quota-unavailable', '暂时无法检查口语额度。'); return true }
         if (!allowed) { fail(res, 429, 'quota', '今日口语额度已用完。'); return true }
       }
       rate.starts.push(Date.now())

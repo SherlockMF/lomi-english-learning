@@ -2,11 +2,14 @@ import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-li
 import { afterEach, expect, it, vi } from 'vitest'
 import type { Session } from '@supabase/supabase-js'
 
-const fake = vi.hoisted(() => ({ session: null as Session | null, active: true, signIn: vi.fn(), signOut: vi.fn() }))
+const fake = vi.hoisted(() => ({
+  session: null as Session | null, active: true, neon: false, signIn: vi.fn(), signOut: vi.fn(),
+  register: vi.fn(), verify: vi.fn(),
+}))
 vi.mock('../lib/cloud/client', () => ({ getCloudClient: () => ({
-  auth: { getSession: async () => ({ data: { session: fake.session }, error: null }), onAuthStateChange: () => ({ data: { subscription: { unsubscribe: vi.fn() } } }), signInWithPassword: fake.signIn, signOut: fake.signOut, resetPasswordForEmail: vi.fn() },
+  auth: { getSession: async () => ({ data: { session: fake.session }, error: null }), onAuthStateChange: () => ({ data: { subscription: { unsubscribe: vi.fn() } } }), signInWithPassword: fake.signIn, signOut: fake.signOut, resetPasswordForEmail: vi.fn(), ...(fake.neon ? { getBetterAuthInstance: vi.fn() } : {}) },
   from: () => ({ select: () => ({ eq: () => ({ maybeSingle: async () => ({ data: { active: fake.active }, error: null }) }) }) }),
-}) }))
+}), beginCloudRegistration: fake.register, verifyCloudRegistration: fake.verify, resendCloudRegistrationCode: vi.fn(), MIN_CLOUD_PASSWORD_LENGTH: 8 }))
 vi.mock('../App', () => ({ default: ({ onRequestLogin }: { onRequestLogin?: () => void }) => onRequestLogin
   ? <div>访客浏览页面<button onClick={onRequestLogin}>开始今天的训练</button></div>
   : <div>受保护的学习页面</div> }))
@@ -14,7 +17,7 @@ vi.mock('../lib/cloud/sync', () => ({ createCloudSync: () => ({ start: vi.fn(), 
 import { CloudApp } from './CloudApp'
 import { selectDatabaseAccount } from '../lib/db'
 
-afterEach(async () => { cleanup(); fake.session = null; fake.active = true; vi.clearAllMocks(); await selectDatabaseAccount(null) })
+afterEach(async () => { cleanup(); fake.session = null; fake.active = true; fake.neon = false; vi.clearAllMocks(); await selectDatabaseAccount(null) })
 
 it('allows browsing and opens a dismissible login only when requested', async () => {
   render(<CloudApp />)
@@ -77,4 +80,35 @@ it('shows a failed sign-out without hiding the account workspace', async () => {
   fireEvent.click(screen.getByRole('button', { name: '退出登录' }))
   expect(await screen.findByRole('alert')).toHaveTextContent('退出失败')
   expect(screen.getByText('受保护的学习页面')).toBeInTheDocument()
+})
+
+it('lets Neon users register with an eight-character password and verify by email before signing in', async () => {
+  fake.neon = true
+  fake.register.mockResolvedValue({ error: null })
+  fake.verify.mockResolvedValue({ error: null })
+  render(<CloudApp />)
+  fireEvent.click(await screen.findByRole('button', { name: '开始今天的训练' }))
+  fireEvent.click(screen.getByRole('button', { name: '注册' }))
+  expect(screen.getByLabelText('密码')).toHaveAttribute('minlength', '8')
+  fireEvent.change(screen.getByLabelText('邮箱'), { target: { value: 'new@example.com' } })
+  fireEvent.change(screen.getByLabelText('密码'), { target: { value: 'eight123' } })
+  fireEvent.click(screen.getByRole('button', { name: '发送验证码' }))
+  expect(await screen.findByLabelText('邮箱验证码')).toBeInTheDocument()
+  expect(fake.register).toHaveBeenCalledWith(expect.anything(), 'new@example.com', 'eight123')
+  fireEvent.change(screen.getByLabelText('邮箱验证码'), { target: { value: '123456' } })
+  fireEvent.click(screen.getByRole('button', { name: '验证邮箱' }))
+  expect(await screen.findByText('邮箱已验证，请登录。')).toBeInTheDocument()
+  expect(fake.verify).toHaveBeenCalledWith(expect.anything(), 'new@example.com', '123456')
+})
+
+it('lets an account resume email verification from the login form', async () => {
+  fake.neon = true
+  fake.signIn.mockResolvedValue({ data: { session: null }, error: { code: 'email_not_confirmed' } })
+  render(<CloudApp />)
+  fireEvent.click(await screen.findByRole('button', { name: '开始今天的训练' }))
+  fireEvent.change(screen.getByLabelText('邮箱'), { target: { value: 'unverified@example.com' } })
+  fireEvent.change(screen.getByLabelText('密码'), { target: { value: 'eight123' } })
+  fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: '登录' }))
+  expect(await screen.findByRole('dialog', { name: '验证邮箱' })).toHaveTextContent('unverified@example.com')
+  expect(screen.getByRole('button', { name: '重发验证码' })).toBeInTheDocument()
 })

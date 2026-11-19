@@ -7,8 +7,12 @@
 1. 在 Neon 的独立项目启用 Data API 和 Managed Better Auth，保持 **Grant public schema access** 关闭。对空库运行 `node scripts/neonSchema.mjs` 输出的 SQL，再刷新 Data API 的 schema cache。已有 `app_memberships` 的数据库跳过初始化。
 2. 为分支创建名为 `voice-history` 的私有 Object Storage 桶。运行 [运行时授权 SQL](../scripts/neonRuntime.sql) 创建 `lomi_runtime` 权限组。通过 PostgreSQL `CREATE ROLE ... LOGIN` 建立专用登录角色并授予 `lomi_runtime`，确认其未继承 `neon_superuser`。Render 的 `NEON_DATABASE_URL` 使用该登录角色连接。在 Render 配置 `VITE_NEON_AUTH_URL`、`VITE_NEON_DATA_URL` 和服务端的 `AWS_ENDPOINT_URL_S3`、`AWS_ACCESS_KEY_ID`、`AWS_SECRET_ACCESS_KEY`、`AWS_REGION`。DeepSeek 和百炼的环境变量可沿用。
 3. 在受控终端为 `NEON_DATABASE_URL` 注入具备词库写权限的连接，执行 `npm run cloud:seed`。确认 `public.words` 包含已导入的词库。部署使用的运行时角色只需要前一步列出的权限。
-4. 在 Neon Auth 信任网站和验收地址，关闭 **Sign-up with Email**，保留 **Sign-in with Email**，打开 **Revoke sessions on password reset**。管理员核对受邀邮箱后，通过 Neon 控制台创建用户，再用 `insert into public.app_memberships (user_id) select id from neon_auth."user" where lower(email) = lower('invitee@example.com') on conflict (user_id) do nothing;` 启用成员。首次使用的用户通过登录页的「忘记密码」收邮件并自行设置密码。
-5. 新库从空库开始。用两个独立账号验证登录、重置邮件、学习同步、录音上传和播放，以及停用账号拦截，再切换 Render 并重新构建发布。原 Supabase 的学习数据和录音需要等备份可用后另行迁移。Neon Auth 与 Supabase 使用不同的密码哈希算法，旧密码不能直接导入。
+4. 在基线及运行时授权已存在的 Neon 库运行一次 [会员迁移 SQL](../scripts/neonMembership.sql)。发布新代码前确认 Data API 已载入 `lomi_membership`，运行时角色可执行额度函数。管理员按原 Auth 用户 UUID 为指定的现有成员设置 `plan = 'standard'` 和 `plan_started_at`，保持成员资格、账号 UUID 和现有记录。
+5. 信任正式站和验收站的来源。保留邮箱登录和重置密码后撤销会话。验收通过后重新构建并发布 Render，再打开 **Sign-up with Email** 和注册验证码（OTP）。保持 **Require email verification to sign in** 关闭，使已开通的旧账号可以正常登录。应用在 PostgreSQL 核验新用户的邮箱验证状态后才启用同步和试用。
+
+Neon 注册和重设密码至少 8 位。试用账号获得 15 天合计 10 分钟录音和 1,000 文字 AI 积分，另有 64 MiB 的录音云备份额度。标准档按马来西亚时间每日刷新 30 分钟录音，每月 1 日刷新 5,000 积分。语音额度按上传的语音消息录音时长计算。标准档已有的实时畅聊保留建连次数限制。文字 AI 调用前预留积分，完成后按用量结算。供应商明确拒绝的请求会释放预留，计费结果未知时保留到本周期结束。超过余额或到期时仍可学习、同步和回听已保存的录音。
+
+原 Supabase 的学习记录和录音需要取得备份后另行迁移。Neon Auth 与 Supabase 使用不同的密码哈希算法，旧密码不能直接导入。
 
 浏览器的录音接口沿用 `/api/voice-history` 和应用登录凭证。`PUT /api/voice-history/<记录 UUID>/audio/<SHA-256>.wav` 上传最多 50 MiB 的 WAV，同内容重试安全。`GET` 读取同一地址，响应禁止缓存。两种操作都检查记录属于当前启用的账号。
 

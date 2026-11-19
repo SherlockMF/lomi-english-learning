@@ -57,13 +57,36 @@ export function createNeonBackend({ env, call, database, objectStorage }) {
     return rows[0].result.allowed
   }
 
+  async function canStartVoice(userId, realtime) {
+    const { rows } = await pool.query('select public.lomi_can_start_voice($1, $2) as allowed', [userId, realtime])
+    return rows[0]?.allowed === true
+  }
+
+  async function reserveAllowance(userId, resource, requestId, units, database = pool) {
+    const { rows } = await database.query('select public.lomi_reserve_allowance($1, $2, $3, $4) as result', [userId, resource, requestId, units])
+    const result = rows[0]?.result
+    if (typeof result?.allowed !== 'boolean' || typeof result.metered !== 'boolean') throw new Error('quota-unavailable')
+    return result
+  }
+
+  async function settleCredits(userId, requestId, credits) {
+    await pool.query('select public.lomi_settle_credits($1, $2, $3)', [userId, requestId, credits])
+  }
+
   async function storeAudio(userId, id, key, body) {
     const connection = await pool.connect()
     try {
       await connection.query('begin')
+      // Reserve against the member before locking history to keep one lock order.
+      const digest = createHash('sha256').update(key).digest('hex')
+      const requestId = `${digest.slice(0, 8)}-${digest.slice(8, 12)}-${digest.slice(12, 16)}-${digest.slice(16, 20)}-${digest.slice(20, 32)}`
+      if (!(await reserveAllowance(userId, 'recording', requestId, body.length, connection)).allowed) {
+        await connection.query('rollback')
+        return 413
+      }
       const { rows } = await connection.query(`select h.id from public.voice_history h join public.app_memberships m using(user_id)
         where h.user_id=$1 and h.id=$2 and not h.deleted and m.active for share of h, m`, [userId, id])
-      if (!rows.length) { await connection.query('rollback'); return false }
+      if (!rows.length) { await connection.query('rollback'); return 404 }
       try {
         await object(new PutObjectCommand({ Bucket: bucket, Key: key, Body: body, ContentType: 'audio/wav', IfNoneMatch: '*' }))
       } catch (cause) {
@@ -71,7 +94,7 @@ export function createNeonBackend({ env, call, database, objectStorage }) {
         if (cause.$metadata?.httpStatusCode !== 412) throw cause
       }
       await connection.query('commit')
-      return true
+      return 201
     } catch (cause) {
       await connection.query('rollback').catch(() => {})
       throw cause
@@ -99,8 +122,12 @@ export function createNeonBackend({ env, call, database, objectStorage }) {
         }
         const body = Buffer.concat(chunks)
         if (!size || createHash('sha256').update(body).digest('hex') !== hash) { fail(res, 400, 'audio-digest'); return true }
-        if (!(await storeAudio(userId, id, key, body))) { fail(res, 404, 'audio-not-found'); return true }
-        res.writeHead(201, { 'cache-control': 'no-store' }).end()
+        const status = await storeAudio(userId, id, key, body)
+        if (status !== 201) {
+          fail(res, status, status === 413 ? 'audio-storage-limit' : 'audio-not-found', status === 413 ? '录音云备份空间已用完。' : undefined)
+          return true
+        }
+        res.writeHead(status, { 'cache-control': 'no-store' }).end()
       } finally {
         audioUploads--
       }
@@ -143,7 +170,7 @@ export function createNeonBackend({ env, call, database, objectStorage }) {
     return { cleaned, remaining: rows.length === 20 }
   }
 
-  return { authenticate, reserveUsage, voiceAudio, cleanup, close() {
+  return { authenticate, reserveUsage, canStartVoice, reserveAllowance, settleCredits, voiceAudio, cleanup, close() {
     if (!database) void pool.end().catch(() => {})
     if (!objectStorage) storage.destroy()
   } }

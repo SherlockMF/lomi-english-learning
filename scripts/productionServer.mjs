@@ -13,7 +13,7 @@ function send(res, status, value) {
   res.writeHead(status, { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store' })
   res.end(JSON.stringify(value))
 }
-function fail(res, status, code) { send(res, status, { error: { code, message: '请求未完成，请稍后重试。' } }) }
+function fail(res, status, code, message = '请求未完成，请稍后重试。') { send(res, status, { error: { code, message } }) }
 function validLookup(word) {
   return typeof word === 'string' && /^[a-z0-9 .',&()/+:%!?_-]{1,100}$/i.test(word) && /[a-z0-9]/i.test(word)
 }
@@ -48,7 +48,12 @@ export function createProductionServer({ env = process.env, fetch: request = glo
     if (typeof result?.allowed !== 'boolean') throw new Error('quota-unavailable')
     return result.allowed
   }
-  const voice = createVoiceHandler({ env, fetch: call, productionOrigin: origin, messageConnect, reserveUsage })
+  const voice = createVoiceHandler({
+    env, fetch: call, productionOrigin: origin, messageConnect, reserveUsage,
+    canStartVoice: neon?.canStartVoice,
+    reserveVoiceTurn: neon && (async (userId, requestId, milliseconds) =>
+      (await neon.reserveAllowance(userId, 'voice', requestId, milliseconds)).allowed),
+  })
   async function authenticate(req, res) {
     const token = req.headers.authorization
     if (typeof token !== 'string' || !/^Bearer [^\s]{1,8192}$/.test(token)) { fail(res, 401, 'unauthorized'); return false }
@@ -72,12 +77,19 @@ export function createProductionServer({ env = process.env, fetch: request = glo
     req.authUserId = user.id
     return true
   }
-  async function proxy(res, target, options, maxBytes = 2 * 1024 * 1024) {
+  async function proxy(res, target, options, onResult) {
     const response = await call(target, options)
-    if (!response.ok) { await response.body?.cancel(); fail(res, response.status === 429 ? 429 : response.status === 404 ? 404 : 502, 'provider-failed'); return }
+    if (!response.ok) {
+      await response.body?.cancel()
+      await onResult?.(response.status)
+      fail(res, response.status === 429 ? 429 : response.status === 404 ? 404 : 502, 'provider-failed')
+      return
+    }
     let size = 0; const chunks = []
-    for await (const chunk of response.body || []) { size += chunk.length; if (size > maxBytes) throw new Error('upstream-too-large'); chunks.push(Buffer.from(chunk)) }
-    res.writeHead(200, { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store' }); res.end(Buffer.concat(chunks))
+    for await (const chunk of response.body || []) { size += chunk.length; if (size > 2 * 1024 * 1024) throw new Error('upstream-too-large'); chunks.push(Buffer.from(chunk)) }
+    const body = Buffer.concat(chunks)
+    await onResult?.(response.status, body)
+    res.writeHead(200, { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store' }); res.end(body)
   }
   const server = createServer(async (req, res) => {
     res.setHeader('X-Content-Type-Options', 'nosniff')
@@ -117,8 +129,27 @@ export function createProductionServer({ env = process.env, fetch: request = glo
           const value = await readJson(req)
           if (!Array.isArray(value?.messages) || value.messages.length < 1 || value.messages.length > 32 || value.messages.some(message => !['system', 'user', 'assistant'].includes(message?.role) || typeof message.content !== 'string' || message.content.length > 24000)) { fail(res, 400, 'messages'); return }
           const payload = { model: 'deepseek-v4-flash', messages: value.messages.map(({ role, content }) => ({ role, content })), response_format: { type: 'json_object' }, thinking: { type: 'disabled' }, stream: false, max_tokens: Math.min(2048, Math.max(1, Number.isInteger(value.max_tokens) ? value.max_tokens : 2048)) }
-          if (!(await reserveUsage(req.authUserId, 'deepseek'))) { fail(res, 429, 'quota'); return }
-          await proxy(res, 'https://api.deepseek.com/v1/chat/completions', { method: 'POST', headers: { Authorization: `Bearer ${env.DEEPSEEK_API_KEY}`, 'Content-Type': 'application/json' }, body: JSON.stringify(payload) }); return
+          const requestId = randomUUID()
+          const userId = req.authUserId
+          const body = JSON.stringify(payload)
+          let onResult
+          if (neon) {
+            const credits = Math.ceil((Buffer.byteLength(body) + payload.messages.length * 32 + payload.max_tokens) / 100)
+            const reservation = await neon.reserveAllowance(userId, 'credits', requestId, credits)
+            if (!reservation.allowed) { fail(res, 429, 'quota', '积分不足或试用已到期，请查看套餐页。'); return }
+            if (reservation.metered) onResult = async (status, result) => {
+              try {
+                // A clear rejection never starts generation. Ambiguous timeouts retain the reservation.
+                if (!result && [400, 401, 402, 403, 404, 413, 422, 429].includes(status)) {
+                  await neon.settleCredits(userId, requestId, 0)
+                } else if (result) {
+                  const tokens = JSON.parse(result.toString('utf8'))?.usage?.total_tokens
+                  if (Number.isSafeInteger(tokens) && tokens > 0) await neon.settleCredits(userId, requestId, Math.ceil(tokens / 100))
+                }
+              } catch { console.error('Text AI credit settlement unavailable.') }
+            }
+          } else if (!(await reserveUsage(userId, 'deepseek', requestId))) { fail(res, 429, 'quota'); return }
+          await proxy(res, 'https://api.deepseek.com/v1/chat/completions', { method: 'POST', headers: { Authorization: `Bearer ${env.DEEPSEEK_API_KEY}`, 'Content-Type': 'application/json' }, body }, onResult); return
         }
         fail(res, 404, 'not-found'); return
       }

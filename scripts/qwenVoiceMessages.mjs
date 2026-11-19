@@ -42,7 +42,7 @@ function providerMessage(error) {
   return '百炼语音消息服务返回错误，请重新开始练习。'
 }
 
-export function createVoiceMessageHandler({ connect = (url, options) => new WebSocket(url, options), production = false, reserveUsage } = {}) {
+export function createVoiceMessageHandler({ connect = (url, options) => new WebSocket(url, options), production = false, reserveUsage, canStartVoice, reserveVoiceTurn } = {}) {
   const sessions = new Map()
   const starts = new Map()
   const pendingOwners = new Set()
@@ -157,8 +157,10 @@ export function createVoiceMessageHandler({ connect = (url, options) => new WebS
         ownsReservation = true
         if (production) {
           let allowed
-          try { allowed = await reserveUsage(owner, 'voice_session') } catch { failure(res, 503, '暂时无法检查口语额度。'); return true }
-          if (!allowed) { failure(res, 429, '今日口语额度已用完。'); return true }
+          try {
+            allowed = (!canStartVoice || await canStartVoice(owner, false)) && await reserveUsage(owner, 'voice_session')
+          } catch { failure(res, 503, '暂时无法检查口语额度。'); return true }
+          if (!allowed) { failure(res, 429, '当前口语额度已用完或已到期。'); return true }
         }
         starts.set(owner, [...(starts.get(owner) || []), Date.now()])
         const socket = connect(`wss://${credentials.workspaceId}.cn-beijing.maas.aliyuncs.com/api-ws/v1/realtime?model=qwen3.8-omni-flash-realtime`, { headers: { Authorization: `Bearer ${credentials.apiKey}` }, handshakeTimeout: 15000, maxPayload: 8 * 1024 * 1024 })
@@ -212,8 +214,12 @@ export function createVoiceMessageHandler({ connect = (url, options) => new WebS
           const hex = createHash('sha256').update(`${owner}/${session.id}/${value.id}`).digest('hex')
           const requestId = `${hex.slice(0, 8)}-${hex.slice(8, 12)}-4${hex.slice(13, 16)}-8${hex.slice(17, 20)}-${hex.slice(20, 32)}`
           let allowed
-          try { allowed = await reserveUsage(owner, 'voice_message', requestId) } catch { failure(res, 503, '暂时无法检查口语额度。'); return true }
-          if (!allowed) { failure(res, 429, '今日语音消息额度已用完。'); return true }
+          try {
+            // 16 kHz, 16-bit, mono PCM contains 32 bytes per millisecond.
+            allowed = reserveVoiceTurn ? await reserveVoiceTurn(owner, requestId, Math.ceil(pcm.length / 32))
+              : await reserveUsage(owner, 'voice_message', requestId)
+          } catch { failure(res, 503, '暂时无法检查口语额度。'); return true }
+          if (!allowed) { failure(res, 429, '语音额度不足或已到期。请查看套餐页。'); return true }
           if (session.closed) { failure(res, 410, '语音消息会话已结束。'); return true }
         } finally { session.reserving = false }
       }

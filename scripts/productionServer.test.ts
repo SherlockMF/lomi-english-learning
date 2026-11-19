@@ -76,8 +76,16 @@ it('authenticates Neon API calls, reserves usage and isolates private audio', as
   const audio = Buffer.from('small recording fixture')
   const hash = createHash('sha256').update(audio).digest('hex')
   const files = new Map<string, Buffer>()
-  const query = async (sql: string, values: string[] = []) => {
-    if (sql.includes('reserve_usage')) return { rows: [{ result: { allowed: values[0] === alice } }] }
+  const holds: unknown[][] = []
+  const settlements: unknown[][] = []
+  let providerStatus = 200
+  const query = async (sql: string, values: unknown[] = []) => {
+    if (sql.includes('lomi_reserve_allowance')) {
+      if (values[1] === 'credits') holds.push(values)
+      return { rows: [{ result: { allowed: values[0] === alice, metered: true } }] }
+    }
+    if (sql.includes('lomi_settle_credits')) { settlements.push(values); return { rows: [] } }
+    if (sql.includes('lomi_can_start_voice')) return { rows: [{ allowed: false }] }
     if (sql.includes('public.voice_history')) return { rows: values[0] === alice && values[1] === record ? [{ id: record }] : [] }
     return { rows: [] }
   }
@@ -95,11 +103,11 @@ it('authenticates Neon API calls, reserves usage and isolates private audio', as
     APP_ORIGIN: auth.Origin, VITE_NEON_AUTH_URL: 'https://auth.example.test/neondb/auth',
     VITE_NEON_DATA_URL: 'https://data.example.test/neondb/rest/v1', NEON_DATABASE_URL: 'postgresql://app@db.example.test/neondb?sslmode=verify-full',
     AWS_ENDPOINT_URL_S3: 'https://storage.example.test', AWS_ACCESS_KEY_ID: 'example', AWS_SECRET_ACCESS_KEY: 'example',
-    AWS_REGION: 'ap-southeast-1', DEEPSEEK_API_KEY: 'example',
+    AWS_REGION: 'ap-southeast-1', DEEPSEEK_API_KEY: 'example', DASHSCOPE_API_KEY: 'example', DASHSCOPE_WORKSPACE_ID: 'example',
   }
   const request = async (target: URL | string, options?: RequestInit) => {
     const url = new URL(target)
-    if (url.hostname === 'api.deepseek.com') return Response.json({ choices: [] })
+    if (url.hostname === 'api.deepseek.com') return Response.json({ choices: [], usage: { total_tokens: 265 } }, { status: providerStatus })
     expect(url.pathname).toBe('/neondb/rest/v1/app_memberships')
     const token = new Headers(options?.headers).get('authorization')
     expect(new Headers(options?.headers).has('apikey')).toBe(false)
@@ -118,6 +126,16 @@ it('authenticates Neon API calls, reserves usage and isolates private audio', as
   expect((await fetch(`${base}/api/deepseek/v1/chat/completions`, {
     method: 'POST', headers: { ...auth, 'content-type': 'application/json' }, body: JSON.stringify(chat),
   })).status).toBe(200)
+  expect(holds).toEqual([[alice, 'credits', expect.any(String), expect.any(Number)]])
+  expect(settlements).toEqual([[alice, holds[0][2], 3]])
+  providerStatus = 429
+  expect((await fetch(`${base}/api/deepseek/v1/chat/completions`, {
+    method: 'POST', headers: { ...auth, 'content-type': 'application/json' }, body: JSON.stringify(chat),
+  })).status).toBe(429)
+  expect(settlements[1]).toEqual([alice, holds[1][2], 0])
+  expect((await fetch(`${base}/api/voice/session`, {
+    method: 'POST', headers: { ...auth, 'content-type': 'application/sdp' }, body: 'v=0\r\nm=audio 9',
+  })).status).toBe(403)
 })
 it('authenticates all APIs, rejects disabled users and spoofed origins, and keeps health public', async () => {
   const { base } = await fixture()
