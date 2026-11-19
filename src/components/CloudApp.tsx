@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import type { Session } from '@supabase/supabase-js'
+import type { AuthChangeEvent, Session } from '@supabase/supabase-js'
 import App from '../App'
-import { getCloudClient } from '../lib/cloud/client'
+import { getCloudAccessToken, getCloudClient, requestCloudPasswordReset, saveCloudPassword } from '../lib/cloud/client'
 import { setApiTokenProvider } from '../lib/apiFetch'
 import { getDatabaseAccount, selectDatabaseAccount, setDatabaseTrackingEnabled } from '../lib/db'
 import { createCloudSync, type CloudConflict, type CloudSyncState, type CloudTransport } from '../lib/cloud/sync'
@@ -27,16 +27,15 @@ export function CloudApp() {
   const requestLogin = useCallback(() => setLoginOpen(true), [])
   const closeLogin = useCallback(() => setLoginOpen(false), [])
   const [passwordSetup, setPasswordSetup] = useState(['/auth/invite', '/auth/update-password'].includes(window.location.pathname))
+  const [recoveryToken] = useState(() => window.location.pathname === '/auth/update-password' && 'getBetterAuthInstance' in client.auth
+    ? new URLSearchParams(window.location.search).get('token') : null)
   const boundAccount = useRef<string | null>(null)
   const userId = session?.user.id
   useEffect(() => {
     let active = true
     let authRevision = 0
-    setApiTokenProvider(async () => {
-      const result = await client.auth.getSession()
-      return result.error ? null : result.data.session?.access_token ?? null
-    })
-    const subscription = client.auth.onAuthStateChange((event, nextSession) => {
+    setApiTokenProvider(() => getCloudAccessToken(client))
+    const subscription = client.auth.onAuthStateChange((event: AuthChangeEvent, nextSession: Session | null) => {
       authRevision++
       if (!active) return
       if (boundAccount.current && boundAccount.current !== nextSession?.user.id) {
@@ -49,7 +48,7 @@ export function CloudApp() {
       if (event === 'PASSWORD_RECOVERY') setPasswordSetup(true)
       setSession(nextSession)
     }).data.subscription
-    void client.auth.getSession().then(result => {
+    void client.auth.getSession().then((result: { data: { session: Session | null }; error: unknown }) => {
       if (!active || authRevision) return
       if (result.error) { setError('无法恢复登录，请重新登录。'); setSession(null) }
       else setSession(result.data.session)
@@ -87,15 +86,22 @@ export function CloudApp() {
     } catch { setError('退出失败，请检查网络后重试。') }
   }
 
+  function completePasswordSetup() {
+    window.history.replaceState(null, '', '/')
+    setPasswordSetup(false)
+    if (!session) setLoginOpen(true)
+  }
+
+  if (passwordSetup && recoveryToken) return <PasswordSetup client={client} recoveryToken={recoveryToken} onComplete={completePasswordSetup} />
   if (session === undefined) return <div className="loading-screen" role="status">正在恢复登录…</div>
   if (!session) return <>
     <div inert={loginOpen ? true : undefined}>
       <div className="cloud-account-bar"><span>访客浏览 · 开始使用时再登录</span><button type="button" onClick={requestLogin}>登录</button></div>
       <App onRequestLogin={requestLogin} initialTab={browsingTab} onTabChange={setBrowsingTab} />
     </div>
-    {loginOpen && <AuthForm error={error} client={client} onClose={closeLogin} />}
+    {loginOpen && <AuthForm error={error} client={client} onClose={closeLogin} onSignedIn={setSession} />}
   </>
-  if (passwordSetup) return <PasswordSetup client={client} onComplete={() => { window.history.replaceState(null, '', '/'); setPasswordSetup(false) }} />
+  if (passwordSetup && 'storage' in client) return <PasswordSetup client={client} recoveryToken={null} onComplete={completePasswordSetup} />
   if (checking || readyAccount !== session.user.id) return <div className="loading-screen">
     {error ? <p role="alert">{error}</p> : <p role="status">正在验证账号权限…</p>}
     {error && <div className="backup-actions"><button type="button" className="secondary-button" onClick={() => window.location.reload()}>重试</button><button type="button" className="secondary-button" onClick={() => void signOut()}>退出登录</button></div>}
@@ -103,7 +109,7 @@ export function CloudApp() {
   return <AccountWorkspace key={readyAccount} accountError={error} initialTab={browsingTab} email={session.user.email ?? ''} client={client} onSignOut={() => void signOut()} />
 }
 
-function AuthForm({ client, error: initialError, onClose }: { client: ReturnType<typeof getCloudClient>; error: string; onClose: () => void }) {
+function AuthForm({ client, error: initialError, onClose, onSignedIn }: { client: ReturnType<typeof getCloudClient>; error: string; onClose: () => void; onSignedIn: (session: Session) => void }) {
   const dialogRef = useRef<HTMLFormElement>(null)
   useFocusTrap(dialogRef)
   useEscapeToClose(onClose)
@@ -121,7 +127,8 @@ function AuthForm({ client, error: initialError, onClose }: { client: ReturnType
     setBusy(true); setError(''); setNotice('')
     try {
       const result = await client.auth.signInWithPassword({ email: email.trim(), password })
-      if (result.error) setError('邮箱或密码不正确，或账号尚未接受邀请。')
+      if (result.error || !result.data.session) setError('邮箱或密码不正确，或账号尚未接受邀请。')
+      else onSignedIn(result.data.session)
     } catch { setError('登录未完成，请检查网络后重试。') }
     finally { setBusy(false) }
   }
@@ -129,7 +136,7 @@ function AuthForm({ client, error: initialError, onClose }: { client: ReturnType
     if (!email.trim()) { setError('请先填写邮箱。'); return }
     setBusy(true); setError(''); setNotice('')
     try {
-      const result = await client.auth.resetPasswordForEmail(email.trim(), { redirectTo: `${window.location.origin}/auth/update-password` })
+      const result = await requestCloudPasswordReset(client, email.trim(), `${window.location.origin}/auth/update-password`)
       if (result.error) setError('重置邮件暂时无法发送，请稍后重试。')
       else setNotice('如果该邮箱可用于登录，你将收到重置密码邮件。')
     } catch { setError('邮件发送未完成，请检查网络后重试。') }
@@ -145,12 +152,12 @@ function AuthForm({ client, error: initialError, onClose }: { client: ReturnType
     <button className="primary-button" type="submit" disabled={busy}>{busy ? '正在处理…' : '登录'}</button>
     <button className="secondary-button" type="button" disabled={busy} onClick={() => void resetPassword()}>忘记密码</button>
     <button className="mini-text-button" type="button" onClick={onClose}>继续浏览</button>
-    <small>暂不开放注册。首次使用请打开管理员发送的邀请邮件。</small>
+    <small>{'getBetterAuthInstance' in client.auth ? '仅向受邀成员开放。账号启用后，首次使用可通过「忘记密码」设置密码。' : '暂不开放注册。首次使用请打开管理员发送的邀请邮件。'}</small>
     <small>联系管理员：<a href="mailto:847542343@qq.com">847542343@qq.com</a></small>
   </form></div>
 }
 
-function PasswordSetup({ client, onComplete }: { client: ReturnType<typeof getCloudClient>; onComplete: () => void }) {
+function PasswordSetup({ client, recoveryToken, onComplete }: { client: ReturnType<typeof getCloudClient>; recoveryToken: string | null; onComplete: () => void }) {
   const [password, setPassword] = useState('')
   const [confirmation, setConfirmation] = useState('')
   const [error, setError] = useState('')
@@ -159,7 +166,7 @@ function PasswordSetup({ client, onComplete }: { client: ReturnType<typeof getCl
     if (password !== confirmation) { setError('两次输入的密码不一致。'); return }
     setBusy(true); setError('')
     try {
-      const result = await client.auth.updateUser({ password })
+      const result = await saveCloudPassword(client, password, recoveryToken)
       if (result.error) setError('密码更新失败，请检查密码要求或重新获取邮件链接。')
       else onComplete()
     } catch { setError('密码更新未完成，请检查网络后重试。') }
@@ -245,7 +252,7 @@ function AccountWorkspace({ client, email, onSignOut, initialTab, accountError }
     </section>}
     {!cacheReady && appReady && <p className="cloud-cache-wait" role="status">正在恢复账号数据…</p>}
     <div inert={appReady && !cacheReady ? true : undefined}><App initialTab={initialTab} onReady={onReady} onBusyChange={onBusyChange} dataReady={cacheReady && state.phase === 'synced'} account={{ email, error: accountError, syncMessage: `${state.message} · ${voiceState.message}`, onSignOut, signOutDisabled: state.phase === 'syncing', onResetPassword: async () => {
-      const result = await client.auth.resetPasswordForEmail(email, { redirectTo: `${window.location.origin}/auth/update-password` })
+      const result = await requestCloudPasswordReset(client, email, `${window.location.origin}/auth/update-password`)
       if (result.error) throw result.error
     } }} /></div>
   </>

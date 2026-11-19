@@ -1,7 +1,6 @@
 /* oxlint-disable no-await-in-loop -- Bound audio memory/network usage and check account ownership between uploads. */
-import type { SupabaseClient } from '@supabase/supabase-js'
 import { getDatabaseAccount } from '../db'
-import { getCloudClient } from '../cloud/client'
+import { getCloudClient, type CloudClient } from '../cloud/client'
 import { apiFetch } from '../apiFetch'
 import type { VoiceHistoryRecord } from './history'
 import type { VoiceCloudRow, VoiceHistoryTransport } from './historyCloud'
@@ -11,6 +10,10 @@ const object = (value: unknown): value is Record<string, any> => !!value && type
 const string = (value: unknown) => typeof value === 'string'
 const correction = (row: unknown) => object(row) && string(row.original) && string(row.improved) && string(row.explanationZh)
 const validAudioPath = (path: string, account: string, id?: string) => new RegExp(`^${account}/${id ?? '[a-f0-9-]{36}'}/[a-f0-9]{64}\\.wav$`).test(path)
+const audioEndpoint = (path: string) => {
+  const [, id, filename] = path.split('/')
+  return `/api/voice-history/${id}/audio/${filename}`
+}
 function validateRow(value: unknown, account: string): VoiceCloudRow {
   if (!object(value) || !uuid.test(value.id) || !Number.isSafeInteger(value.revision) || value.revision < 0 || typeof value.deleted !== 'boolean') throw new Error('Invalid voice history')
   if (value.deleted || value.data === null) return { id: value.id, revision: value.revision, deleted: value.deleted, data: null }
@@ -29,7 +32,7 @@ function validateRow(value: unknown, account: string): VoiceCloudRow {
   return value as unknown as VoiceCloudRow
 }
 
-export function createVoiceHistoryTransport(client: SupabaseClient, account: string): VoiceHistoryTransport {
+export function createVoiceHistoryTransport(client: CloudClient, account: string): VoiceHistoryTransport {
   const check = (signal?: AbortSignal) => { if (!uuid.test(account) || getDatabaseAccount() !== account || signal?.aborted) throw new Error('Voice account changed') }
   async function rpc(name: string, args: Record<string, unknown>, signal?: AbortSignal) {
     check(signal)
@@ -62,9 +65,14 @@ export function createVoiceHistoryTransport(client: SupabaseClient, account: str
             turn.audioPath = `${account}/${id}/${hash}.wav`
             check(signal)
             if (!prepared.data?.turns.some(saved => saved.audioPath === turn.audioPath)) {
-              const uploaded = await client.storage.from('voice-history').upload(turn.audioPath, bytes, { contentType: 'audio/wav', cacheControl: '0', upsert: false })
+              if ('storage' in client) {
+                const uploaded = await client.storage.from('voice-history').upload(turn.audioPath, bytes, { contentType: 'audio/wav', cacheControl: '0', upsert: false })
+                if (uploaded.error && String((uploaded.error as { statusCode?: string }).statusCode) !== '409') throw uploaded.error
+              } else {
+                const result = await apiFetch(audioEndpoint(turn.audioPath), { method: 'PUT', headers: { 'content-type': 'audio/wav' }, body: bytes, signal })
+                if (!result.ok) throw new Error('Voice audio upload failed')
+              }
               check(signal)
-              if (uploaded.error && String((uploaded.error as { statusCode?: string }).statusCode) !== '409') throw uploaded.error
             }
           }
           turns.push(turn)
@@ -89,7 +97,18 @@ export function createVoiceHistoryTransport(client: SupabaseClient, account: str
 
 export async function downloadVoiceHistoryAudio(path: string, account: string, signal: AbortSignal) {
   if (!uuid.test(account) || getDatabaseAccount() !== account || !validAudioPath(path, account)) throw new Error('Invalid audio owner')
-  const result = await getCloudClient().storage.from('voice-history').download(path, {}, { signal, cache: 'no-store' })
-  if (result.error || getDatabaseAccount() !== account || signal.aborted) throw new Error('Audio download failed')
-  return result.data
+  const client = getCloudClient()
+  const download = async () => {
+    if ('storage' in client) {
+      const result = await client.storage.from('voice-history').download(path, {}, { signal, cache: 'no-store' })
+      if (result.error) throw new Error('Audio download failed')
+      return result.data
+    }
+    const result = await apiFetch(audioEndpoint(path), { signal, cache: 'no-store' })
+    if (!result.ok) throw new Error('Audio download failed')
+    return result.blob()
+  }
+  const audio = await download()
+  if (getDatabaseAccount() !== account || signal.aborted) throw new Error('Audio download failed')
+  return audio
 }

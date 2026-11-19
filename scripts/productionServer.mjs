@@ -5,6 +5,7 @@ import { fileURLToPath } from 'node:url'
 import { randomUUID } from 'node:crypto'
 import { createVoiceHandler } from './qwenVoiceServer.mjs'
 import { cleanupVoiceHistory } from './voiceHistoryCleanup.mjs'
+import { createNeonBackend } from './neonBackend.mjs'
 
 const MIME = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.json': 'application/json; charset=utf-8', '.svg': 'image/svg+xml', '.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.webp': 'image/webp', '.ico': 'image/x-icon', '.woff': 'font/woff', '.woff2': 'font/woff2', '.mp3': 'audio/mpeg', '.wav': 'audio/wav' }
 function send(res, status, value) {
@@ -25,16 +26,19 @@ async function readJson(req, limit = 64 * 1024) {
   }
   try { return JSON.parse(Buffer.concat(chunks).toString('utf8')) } catch { const error = new Error('json'); error.status = 400; throw error }
 }
-export function createProductionServer({ env = process.env, fetch: request = globalThis.fetch, root = join(dirname(fileURLToPath(import.meta.url)), '..', 'dist'), messageConnect } = {}) {
-  const required = ['APP_ORIGIN', 'VITE_SUPABASE_URL', 'VITE_SUPABASE_PUBLISHABLE_KEY', 'SUPABASE_SECRET_KEY']
+export function createProductionServer({ env = process.env, fetch: request = globalThis.fetch, root = join(dirname(fileURLToPath(import.meta.url)), '..', 'dist'), messageConnect, neonDatabase, neonObjectStorage } = {}) {
+  const useNeon = Boolean(env.VITE_NEON_AUTH_URL?.trim() || env.VITE_NEON_DATA_URL?.trim())
+  const required = useNeon ? ['APP_ORIGIN'] : ['APP_ORIGIN', 'VITE_SUPABASE_URL', 'VITE_SUPABASE_PUBLISHABLE_KEY', 'SUPABASE_SECRET_KEY']
   if (required.some(key => typeof env[key] !== 'string' || !env[key].trim())) throw new Error('Missing production identity configuration')
   const origin = new URL(env.APP_ORIGIN).origin
   if (env.APP_ORIGIN !== origin || !origin.startsWith('https://')) throw new Error('APP_ORIGIN must be an HTTPS origin')
-  const supabase = new URL(env.VITE_SUPABASE_URL)
-  if (supabase.protocol !== 'https:' && !(supabase.protocol === 'http:' && ['127.0.0.1', 'localhost'].includes(supabase.hostname))) throw new Error('Invalid Supabase URL')
+  const supabase = useNeon ? null : new URL(env.VITE_SUPABASE_URL)
+  if (supabase && supabase.protocol !== 'https:' && !(supabase.protocol === 'http:' && ['127.0.0.1', 'localhost'].includes(supabase.hostname))) throw new Error('Invalid Supabase URL')
   const staticRoot = resolve(root)
   const call = (url, options = {}) => request(url, { ...options, redirect: 'error', signal: options.signal || AbortSignal.timeout(25000) })
+  const neon = useNeon ? createNeonBackend({ env, call, database: neonDatabase, objectStorage: neonObjectStorage }) : null
   async function reserveUsage(userId, kind, requestId = randomUUID()) {
+    if (neon) return neon.reserveUsage(userId, kind, requestId)
     const response = await call(new URL('/rest/v1/rpc/reserve_usage', supabase), {
       method: 'POST', headers: { apikey: env.SUPABASE_SECRET_KEY, 'Content-Type': 'application/json' },
       body: JSON.stringify({ p_user_id: userId, p_kind: kind, p_request_id: requestId }),
@@ -48,6 +52,12 @@ export function createProductionServer({ env = process.env, fetch: request = glo
   async function authenticate(req, res) {
     const token = req.headers.authorization
     if (typeof token !== 'string' || !/^Bearer [^\s]{1,8192}$/.test(token)) { fail(res, 401, 'unauthorized'); return false }
+    if (neon) {
+      const identity = await neon.authenticate(token)
+      if (!identity.id) { fail(res, identity.status, identity.code); return false }
+      req.authUserId = identity.id
+      return true
+    }
     const headers = { apikey: env.VITE_SUPABASE_PUBLISHABLE_KEY, Authorization: token }
     const userResponse = await call(new URL('/auth/v1/user', supabase), { headers })
     if (!userResponse.ok) { fail(res, userResponse.status === 401 || userResponse.status === 403 ? 401 : 503, 'unauthorized'); return false }
@@ -82,10 +92,11 @@ export function createProductionServer({ env = process.env, fetch: request = glo
         if ((req.headers.origin && req.headers.origin !== origin) || req.headers['sec-fetch-site'] === 'cross-site' || (!['GET', 'HEAD'].includes(req.method) && req.headers.origin !== origin)) { fail(res, 403, 'origin'); return }
         if (!(await authenticate(req, res))) return
         if (path === '/api/voice-history/cleanup' && req.method === 'POST' && !url.search) {
-          try { send(res, 200, await cleanupVoiceHistory({ userId: req.authUserId, supabase, secret: env.SUPABASE_SECRET_KEY, call })) }
+          try { send(res, 200, neon ? await neon.cleanup(req.authUserId) : await cleanupVoiceHistory({ userId: req.authUserId, supabase, secret: env.SUPABASE_SECRET_KEY, call })) }
           catch { fail(res, 503, 'voice-cleanup-unavailable') }
           return
         }
+        if (neon && await neon.voiceAudio(req, res, url, fail)) return
         if (await voice(req, res)) return
         const dictionary = /^\/api\/dictionary\/api\/v2\/entries\/en\/([^/]+)$/.exec(path)
         if (dictionary && req.method === 'GET' && !url.search) {
@@ -130,6 +141,7 @@ export function createProductionServer({ env = process.env, fetch: request = glo
   server.requestTimeout = 40000
   server.headersTimeout = 15000
   server.once('close', voice.close)
+  if (neon) server.once('close', neon.close)
   return server
 }
 

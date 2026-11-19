@@ -51,6 +51,17 @@ it('does not mount user data for a disabled account', async () => {
   expect(screen.queryByText('受保护的学习页面')).not.toBeInTheDocument()
 })
 
+it('opens the account after sign-in when the provider does not broadcast an event to the current tab', async () => {
+  fake.signIn.mockResolvedValue({ data: { session: { user: { id: '44444444-4444-4444-8444-444444444444', email: 'invited@example.com' } } }, error: null })
+  render(<CloudApp />)
+  fireEvent.click(await screen.findByRole('button', { name: '开始今天的训练' }))
+  fireEvent.change(screen.getByLabelText('邮箱'), { target: { value: 'invited@example.com' } })
+  fireEvent.change(screen.getByLabelText('密码'), { target: { value: 'example-password' } })
+  fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: '登录' }))
+  expect(await screen.findByText('受保护的学习页面')).toBeInTheDocument()
+  expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+})
+
 it('opens only the authenticated account database after checking access', async () => {
   fake.session = { user: { id: '22222222-2222-4222-8222-222222222222', email: 'invited@example.com' } } as Session
   render(<CloudApp />)

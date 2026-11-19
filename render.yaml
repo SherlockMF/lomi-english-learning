@@ -15,6 +15,20 @@ services:
         value: "22.x"
       - key: APP_ORIGIN
         value: https://english.lomivex.top
+      - key: VITE_NEON_AUTH_URL
+        sync: false
+      - key: VITE_NEON_DATA_URL
+        sync: false
+      - key: NEON_DATABASE_URL
+        sync: false
+      - key: AWS_ENDPOINT_URL_S3
+        sync: false
+      - key: AWS_ACCESS_KEY_ID
+        sync: false
+      - key: AWS_SECRET_ACCESS_KEY
+        sync: false
+      - key: AWS_REGION
+        sync: false
       - key: VITE_SUPABASE_URL
         sync: false
       - key: VITE_SUPABASE_PUBLISHABLE_KEY

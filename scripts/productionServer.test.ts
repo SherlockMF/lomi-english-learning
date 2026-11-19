@@ -2,6 +2,8 @@ import { createServer, type Server } from 'node:http'
 import { mkdtempSync, writeFileSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
+import { createHash } from 'node:crypto'
+import { Readable } from 'node:stream'
 import { afterEach, expect, it } from 'vitest'
 import { WebSocket, WebSocketServer } from 'ws'
 import { createProductionServer } from './productionServer.mjs'
@@ -65,6 +67,57 @@ const auth = { Authorization: 'Bearer good', Origin: 'https://english.lomivex.to
 const chat = { messages: [{ role: 'user', content: 'JSON please' }], response_format: { type: 'json_object' } }
 it('fails closed when production identity configuration is absent', () => {
   expect(() => createProductionServer({ env: {} })).toThrow()
+})
+
+it('authenticates Neon API calls, reserves usage and isolates private audio', async () => {
+  const alice = '00000000-0000-4000-8000-000000000001'
+  const bob = '00000000-0000-4000-8000-000000000002'
+  const record = '10000000-0000-0000-0000-000000000001'
+  const audio = Buffer.from('small recording fixture')
+  const hash = createHash('sha256').update(audio).digest('hex')
+  const files = new Map<string, Buffer>()
+  const query = async (sql: string, values: string[] = []) => {
+    if (sql.includes('reserve_usage')) return { rows: [{ result: { allowed: values[0] === alice } }] }
+    if (sql.includes('public.voice_history')) return { rows: values[0] === alice && values[1] === record ? [{ id: record }] : [] }
+    return { rows: [] }
+  }
+  const neonDatabase = { query, connect: async () => ({ query, release() {} }) }
+  const neonObjectStorage = { async send(command: { constructor: { name: string }; input: { Key: string; Body: Buffer; IfNoneMatch?: string } }) {
+    const key = command.input.Key
+    if (command.constructor.name === 'PutObjectCommand') {
+      expect(command.input.IfNoneMatch).toBe('*')
+      files.set(key, command.input.Body)
+      return {}
+    }
+    return { Body: Readable.from([files.get(key)!]), ContentLength: audio.length }
+  } }
+  const env = {
+    APP_ORIGIN: auth.Origin, VITE_NEON_AUTH_URL: 'https://auth.example.test/neondb/auth',
+    VITE_NEON_DATA_URL: 'https://data.example.test/neondb/rest/v1', NEON_DATABASE_URL: 'postgresql://app@db.example.test/neondb?sslmode=verify-full',
+    AWS_ENDPOINT_URL_S3: 'https://storage.example.test', AWS_ACCESS_KEY_ID: 'example', AWS_SECRET_ACCESS_KEY: 'example',
+    AWS_REGION: 'ap-southeast-1', DEEPSEEK_API_KEY: 'example',
+  }
+  const request = async (target: URL | string, options?: RequestInit) => {
+    const url = new URL(target)
+    if (url.hostname === 'api.deepseek.com') return Response.json({ choices: [] })
+    expect(url.pathname).toBe('/neondb/rest/v1/app_memberships')
+    const token = new Headers(options?.headers).get('authorization')
+    expect(new Headers(options?.headers).has('apikey')).toBe(false)
+    if (token === 'Bearer forged') return Response.json({}, { status: 401 })
+    return Response.json(token === 'Bearer disabled' ? [] : [{ user_id: token === 'Bearer other' ? bob : alice, active: true }])
+  }
+  const base = await listen(createProductionServer({ env, fetch: request, neonDatabase, neonObjectStorage }))
+  const url = `${base}/api/voice-history/${record}/audio/${hash}.wav`
+  expect((await fetch(url, { headers: { Authorization: 'Bearer forged' } })).status).toBe(401)
+  expect((await fetch(url, { headers: { Authorization: 'Bearer disabled' } })).status).toBe(403)
+  expect((await fetch(url, { headers: { Authorization: 'Bearer other' } })).status).toBe(404)
+  expect((await fetch(url, { method: 'PUT', headers: { ...auth, 'content-type': 'audio/wav' }, body: audio })).status).toBe(201)
+  const downloaded = await fetch(url, { headers: auth })
+  expect(downloaded.headers.get('cache-control')).toBe('no-store')
+  expect(Buffer.from(await downloaded.arrayBuffer())).toEqual(audio)
+  expect((await fetch(`${base}/api/deepseek/v1/chat/completions`, {
+    method: 'POST', headers: { ...auth, 'content-type': 'application/json' }, body: JSON.stringify(chat),
+  })).status).toBe(200)
 })
 it('authenticates all APIs, rejects disabled users and spoofed origins, and keeps health public', async () => {
   const { base } = await fixture()

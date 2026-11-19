@@ -37,3 +37,16 @@ it('does not upload after deletion or report success when audio upload fails', a
   await expect(transport.push(record.id, record, 0)).rejects.toMatchObject({ statusCode: '413' })
   expect(rpc).toHaveBeenCalledTimes(2)
 })
+
+it('uploads Neon recordings through the same-origin account-scoped API', async () => {
+  vi.stubGlobal('crypto', webcrypto)
+  const request = vi.fn(async () => new Response(null, { status: 201 }))
+  vi.stubGlobal('fetch', request)
+  await selectDatabaseAccount(account)
+  const rpc = (name: string, args: any) => ({ abortSignal: async () => ({
+    data: { id: record.id, revision: 0, deleted: false, data: name === 'voice_history_prepare' ? null : args.p_data }, error: null,
+  }) })
+  const applied = await createVoiceHistoryTransport({ rpc } as any, account).push(record.id, record, 0)
+  const hash = applied.data!.turns[0].audioPath!.split('/').pop()
+  expect(request).toHaveBeenCalledWith(`/api/voice-history/${record.id}/audio/${hash}`, expect.objectContaining({ method: 'PUT' }))
+})

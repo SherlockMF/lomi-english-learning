@@ -2,6 +2,16 @@
 
 本文供首次接手的管理员将邀请制 Lomi English（洛米英语） 部署到 Render + Supabase。按顺序完成后台配置、发布和两账号验收后，再邀请正式用户。当前仓库准备工作不代表网站已经发布；真实项目、SMTP、供应商权限和 DNS 仍需后台验证。本地 Docker daemon 不可用，数据库自动测试使用 PGlite，不能替代真实 Supabase 集成验收。
 
+## 切换到 Neon
+
+1. 在 Neon 的独立项目启用 Data API 和 Managed Better Auth，保持 **Grant public schema access** 关闭。对空库运行 `node scripts/neonSchema.mjs` 输出的 SQL，再刷新 Data API 的 schema cache。已有 `app_memberships` 的数据库跳过初始化。
+2. 为分支创建名为 `voice-history` 的私有 Object Storage 桶。运行 [运行时授权 SQL](../scripts/neonRuntime.sql) 创建 `lomi_runtime` 权限组。通过 PostgreSQL `CREATE ROLE ... LOGIN` 建立专用登录角色并授予 `lomi_runtime`，确认其未继承 `neon_superuser`。Render 的 `NEON_DATABASE_URL` 使用该登录角色连接。在 Render 配置 `VITE_NEON_AUTH_URL`、`VITE_NEON_DATA_URL` 和服务端的 `AWS_ENDPOINT_URL_S3`、`AWS_ACCESS_KEY_ID`、`AWS_SECRET_ACCESS_KEY`、`AWS_REGION`。DeepSeek 和百炼的环境变量可沿用。
+3. 在受控终端为 `NEON_DATABASE_URL` 注入具备词库写权限的连接，执行 `npm run cloud:seed`。确认 `public.words` 包含已导入的词库。部署使用的运行时角色只需要前一步列出的权限。
+4. 在 Neon Auth 信任网站和验收地址，开启邮件登录和邮箱验证，再验证重置邮件。管理员通过 Neon 控制台创建用户，并核对邮箱已验证后启用成员。Neon 的底层 Auth 注册接口可以公开创建身份，应用数据和 API 只对启用的成员开放。管理员可用 `insert into public.app_memberships (user_id) select id from neon_auth."user" where lower(email) = lower('invitee@example.com') and "emailVerified" is true;` 启用受邀账号。
+5. 新库从空库开始。用两个独立账号验证登录、重置邮件、学习同步、录音上传和播放，以及停用账号拦截，再切换 Render 并重新构建发布。原 Supabase 的学习数据和录音需要等备份可用后另行迁移。Neon Auth 与 Supabase 使用不同的密码哈希算法，旧密码不能直接导入。
+
+浏览器的录音接口沿用 `/api/voice-history` 和应用登录凭证。`PUT /api/voice-history/<记录 UUID>/audio/<SHA-256>.wav` 上传最多 50 MiB 的 WAV，同内容重试安全。`GET` 读取同一地址，响应禁止缓存。两种操作都检查记录属于当前启用的账号。
+
 ## 1. 准备账号和发布版本
 
 需要可供 Render 读取的 Git 仓库、Render 账号、Singapore 地区的 Supabase 项目、`lomivex.top` DNS 管理权限、自定义 SMTP，以及 DeepSeek、百炼北京地域的可用凭证。当前使用免费 Web Service 试运行。凭证只填后台，不提交到 Git、聊天或截图。

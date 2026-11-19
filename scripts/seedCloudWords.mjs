@@ -1,5 +1,6 @@
 import { resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { neon } from '@neondatabase/serverless'
 import { loadSeedPackFromDisk } from './lib/loadSeedPack.mjs'
 
 /** Upload only the fixed-id seed; browser-created dictionary ids belong to each user. */
@@ -34,12 +35,31 @@ export async function seedCloudWords({ url, secret, words, fetcher = globalThis.
   return uploadSharedWords(client, words)
 }
 
+export function seedNeonWords({ query, words }) {
+  const client = { from: () => ({ upsert: async rows => {
+    await query(`insert into public.words(id, data)
+      select id, data from jsonb_to_recordset($1::jsonb) as word(id text, data jsonb)
+      on conflict (id) do update set data = excluded.data`, [JSON.stringify(rows)])
+    return { error: false }
+  } }) }
+  return uploadSharedWords(client, words)
+}
+
 async function main() {
   const root = fileURLToPath(new URL('../', import.meta.url))
   const { words } = await loadSeedPackFromDisk(root)
   if (process.argv.includes('--dry-run')) {
     if (new Set(words.map((word) => word.id)).size !== words.length) throw new Error('Duplicate shared word ids')
     console.log(`Shared words: ${words.length}`)
+    return
+  }
+  const neonUrl = process.env.NEON_DATABASE_URL
+  if (neonUrl) {
+    const connection = new URL(neonUrl)
+    if (!['postgres:', 'postgresql:'].includes(connection.protocol)) throw new Error('Invalid Neon database URL')
+    connection.searchParams.set('sslmode', 'verify-full')
+    const count = await seedNeonWords({ query: neon(connection.href).query, words })
+    console.log(`Shared words: ${count}`)
     return
   }
   const url = process.env.SUPABASE_URL ?? process.env.VITE_SUPABASE_URL
