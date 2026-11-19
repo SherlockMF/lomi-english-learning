@@ -101,7 +101,6 @@ const settingsFallback = <div className="dialog-backdrop" role="status">正在�
 interface AppProps {
   account?: AccountControls
   accountMembership?: import('./lib/cloud/client').CloudMembership | null
-  refreshMembership?: () => Promise<import('./lib/cloud/client').CloudMembership | null>
   dataReady?: boolean
   onReady?: () => void
   onBusyChange?: (busy: boolean) => void
@@ -110,7 +109,7 @@ interface AppProps {
   onTabChange?: (tab: AppTab) => void
 }
 
-function App({ onReady, onBusyChange, onRequestLogin, initialTab = 'today', onTabChange, account, dataReady = true, accountMembership, refreshMembership }: AppProps = {}) {
+function App({ onReady, onBusyChange, onRequestLogin, initialTab = 'today', onTabChange, account, dataReady = true, accountMembership }: AppProps = {}) {
   const [tab, setTab] = useState<AppTab>(initialTab)
   const preview = Boolean(onRequestLogin)
   const [items, setItems] = useState<VocabularyItem[]>([])
@@ -751,7 +750,7 @@ function App({ onReady, onBusyChange, onRequestLogin, initialTab = 'today', onTa
           />
         )}
         {tab === 'voice' && <VoicePractice items={items} accent={settings.speechAccent} onRequestLogin={onRequestLogin} onSaveExpression={saveSpokenExpression} learningGoal={settings.learningGoal} trial={accountMembership?.plan === 'trial'} />}
-        {tab === 'plans' && <MembershipPlans membership={accountMembership} refreshMembership={refreshMembership} onExplore={() => { setTab('voice'); onTabChange?.('voice') }} />}
+        {tab === 'plans' && <MembershipPlans onExplore={() => { setTab('voice'); onTabChange?.('voice') }} />}
         </Suspense>
       </AppShell>
 

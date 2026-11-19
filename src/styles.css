@@ -379,8 +379,88 @@ p {
   box-shadow: 0 4px 13px rgba(28, 41, 39, 0.18);
 }
 
-.settings-button {
+.topbar-actions {
+  display: flex;
+  align-items: center;
   justify-self: end;
+  gap: 10px;
+}
+
+.topbar-actions > .settings-button { flex: 0 0 auto; }
+.topbar-balance { position: relative; }
+.topbar-balance-description {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+.topbar-balance summary {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  min-height: 44px;
+  padding: 4px 11px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  color: var(--ink);
+  background: var(--paper);
+  list-style: none;
+  cursor: pointer;
+}
+.topbar-balance summary::-webkit-details-marker { display: none; }
+.topbar-balance summary:hover,
+.topbar-balance details[open] summary { border-color: var(--green); background: var(--green-soft); }
+.topbar-balance summary:focus-visible { outline: 2px solid var(--green); outline-offset: 3px; }
+.topbar-balance-metric { display: flex; align-items: center; gap: 6px; white-space: nowrap; }
+.topbar-balance-metric + .topbar-balance-metric { border-left: 1px solid var(--line); padding-left: 9px; }
+.topbar-balance-metric > svg, .topbar-balance-chevron { color: var(--green-dark); flex-shrink: 0; }
+.topbar-balance-metric small { display: block; color: var(--muted); font-size: 11px; font-weight: 600; }
+.topbar-balance-metric strong { display: block; font-size: 13px; font-variant-numeric: tabular-nums; }
+.topbar-balance-metric .balance-empty { color: #8d4a29; }
+.topbar-balance-chevron { transform: rotate(90deg); }
+.topbar-balance details[open] .topbar-balance-chevron { transform: rotate(-90deg); }
+.topbar-balance-panel {
+  position: absolute;
+  inset: calc(100% + 8px) 0 auto auto;
+  width: min(278px, calc(100vw - 77px));
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: var(--paper);
+  box-shadow: var(--shadow);
+}
+.topbar-balance-panel-head { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+.topbar-balance-panel h2 { margin: 0; font-size: 15px; }
+.topbar-balance-panel-head span { font-size: 12px; color: var(--green-dark); }
+.topbar-balance-panel dl { margin: 8px 0; font-size: 13px; }
+.topbar-balance-panel dl > div { display: grid; grid-template-columns: auto 1fr; gap: 3px 8px; padding: 7px 0; border-top: 1px solid var(--line); }
+.topbar-balance-panel dd { margin: 0; text-align: right; }
+.topbar-balance-panel .topbar-balance-cycle { grid-column: 1 / -1; color: var(--muted); font-size: 11px; }
+.topbar-balance-panel p { margin: 3px 0 0; color: var(--muted); font-size: 11px; }
+
+@media (min-width: 701px) and (max-width: 900px) {
+  .topbar:has(.topbar-balance) { grid-template-columns: auto 1fr auto; gap: 14px; }
+  .topbar:has(.topbar-balance) .desktop-nav { justify-self: center; gap: 2px; }
+  .topbar:has(.topbar-balance) .nav-link { min-width: 0; padding-inline: 10px; }
+}
+
+@media (max-width: 460px) {
+  .topbar:has(.topbar-balance) { padding-inline: 9px; }
+  .topbar:has(.topbar-balance) .brand { gap: 6px; }
+  .topbar-actions { gap: 6px; }
+  .topbar-balance summary { gap: 5px; padding-inline: 7px; }
+  .topbar-balance-metric + .topbar-balance-metric { padding-left: 6px; }
+  .topbar-balance-metric > svg,
+  .topbar-balance-label-detail { display: none; }
+}
+
+@media (max-width: 360px) {
+  .topbar:has(.topbar-balance) .brand { gap: 5px; padding-inline: 2px; }
+  .topbar:has(.topbar-balance) .brand-mark { width: 31px; height: 31px; }
+  .topbar:has(.topbar-balance) .brand-copy strong { font-size: 16px; }
 }
 
 .icon-button,

@@ -55,8 +55,9 @@ export function resendCloudRegistrationCode(client: CloudClient, email: string) 
   return neonAuth(client).emailOtp.sendVerificationOtp({ email, type: 'email-verification' })
 }
 
-export async function readNeonMembership(client: CloudClient) {
-  const { data, error } = await client.rpc('lomi_membership', {})
+export async function readNeonMembership(client: CloudClient, signal?: AbortSignal) {
+  const request = client.rpc('lomi_membership', {})
+  const { data, error } = await (signal ? request.abortSignal(signal) : request)
   if (error || typeof data?.active !== 'boolean') throw new Error('无法验证账号权限，请检查网络后重试。')
   if (!data.active || data.plan === 'legacy') return { active: data.active as boolean, membership: null, needsVerification: data.needs_verification === true }
   if ((data.plan !== 'trial' && data.plan !== 'standard') || !Number.isSafeInteger(data.voice_ms) || !Number.isSafeInteger(data.credits)

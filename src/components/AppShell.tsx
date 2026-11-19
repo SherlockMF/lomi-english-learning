@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react'
 import { Icon } from './Icon'
+import { TopbarBalance } from './TopbarBalance'
 
 export type AppTab = 'today' | 'add' | 'library' | 'voice' | 'plans'
 
@@ -51,14 +52,17 @@ export function AppShell({
           ))}
         </nav>
 
-        <button
-          aria-label="打开设置"
-          className="icon-button settings-button"
-          onClick={onOpenSettings}
-          type="button"
-        >
-          <Icon name="settings" size={21} />
-        </button>
+        <div className="topbar-actions">
+          <TopbarBalance />
+          <button
+            aria-label="打开设置"
+            className="icon-button settings-button"
+            onClick={onOpenSettings}
+            type="button"
+          >
+            <Icon name="settings" size={21} />
+          </button>
+        </div>
       </header>
 
       <main className="main-content">{children}</main>

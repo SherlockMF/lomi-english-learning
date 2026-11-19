@@ -1,4 +1,5 @@
 let tokenProvider: (() => Promise<string | null>) | null = null
+export const MEMBERSHIP_USAGE_CHANGED = 'recall-membership-usage-changed'
 
 export function setApiTokenProvider(provider: typeof tokenProvider) {
   tokenProvider = provider
@@ -12,5 +13,13 @@ export async function apiFetch(path: string, options?: RequestInit): Promise<Res
   if (!token || tokenProvider !== provider) throw new Error('登录已失效，请重新登录。')
   const headers = new Headers(options?.headers)
   headers.set('Authorization', `Bearer ${token}`)
-  return fetch(path, { ...options, headers })
+  const metered = options?.method?.toUpperCase() === 'POST' && (path === '/api/deepseek/v1/chat/completions'
+    || /^\/api\/voice\/messages\/[^/]+\/turns$/.test(path))
+  if (!metered) return fetch(path, { ...options, headers })
+  try {
+    return await fetch(path, { ...options, headers })
+  } finally {
+    // Some failures can still consume an allowance. Read the server balance again.
+    if (tokenProvider === provider && typeof window !== 'undefined') window.dispatchEvent(new Event(MEMBERSHIP_USAGE_CHANGED))
+  }
 }

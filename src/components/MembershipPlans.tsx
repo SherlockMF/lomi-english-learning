@@ -1,5 +1,4 @@
-import { useEffect, useState } from 'react'
-import type { CloudMembership } from '../lib/cloud/client'
+import { useMembershipBalance } from '../lib/cloud/membershipBalance'
 import { Icon } from './Icon'
 
 const plans = [
@@ -13,21 +12,10 @@ const plans = [
 
 const included = ['口语内逐句纠错与课后总结', '口语表达确认后加入复习', '完整词库、常规复习与学习记录', '相同的标准口语模型质量']
 
-export function MembershipPlans({ onExplore, membership, refreshMembership }: {
-  onExplore: () => void
-  membership?: CloudMembership | null
-  refreshMembership?: () => Promise<CloudMembership | null>
-}) {
-  const [balance, setBalance] = useState<CloudMembership | null>(null)
-  const [balanceError, setBalanceError] = useState(false)
-  useEffect(() => {
-    if (!refreshMembership) return
-    let active = true
-    void refreshMembership().then(value => { if (active) { setBalance(value); setBalanceError(!value) } })
-      .catch(() => { if (active) setBalanceError(true) })
-    return () => { active = false }
-  }, [refreshMembership])
-  const seconds = balance ? Math.floor(balance.voice_ms / 1000) : 0
+export function MembershipPlans({ onExplore }: { onExplore: () => void }) {
+  const balance = useMembershipBalance()
+  const membership = balance?.membership
+  const seconds = membership ? Math.floor(membership.voice_ms / 1000) : 0
   return <section className="page-stack membership-page" aria-labelledby="membership-title">
     <header className="membership-heading">
       <div><p className="eyebrow">A LITTLE ENGLISH, EVERY DAY</p><h1 id="membership-title">给每天的英语，留一点时间。</h1><p>从轻量开口，到认真练习。按你的节奏，了解适合自己的方案。</p></div>
@@ -36,9 +24,9 @@ export function MembershipPlans({ onExplore, membership, refreshMembership }: {
 
     {membership && <div className="membership-notice"><Icon name="clock" size={20} aria-hidden="true" /><p>
       <strong>{membership.plan === 'standard' ? '标准档 · 永久' : '15 天免费试用'}</strong>
-      {balance ? <> · 剩余语音消息 {Math.floor(seconds / 60)} 分 {seconds % 60} 秒 · {balance.credits.toLocaleString('zh-CN')} 积分
-        {balance.expires_at && (balance.trial_expired ? ' · 试用已结束' : ` · ${new Date(balance.expires_at).toLocaleString('zh-CN', { dateStyle: 'medium', timeStyle: 'short' })} 到期`)}
-      </> : <span role="status">{balanceError ? ' · 暂时无法查询余额' : ' · 正在查询余额…'}</span>}
+      {' · 剩余语音消息 '}{Math.floor(seconds / 60)} 分 {seconds % 60} 秒 · {membership.credits.toLocaleString('zh-CN')} 积分
+      {membership.expires_at && (membership.trial_expired ? ' · 试用已结束' : ` · ${new Date(membership.expires_at).toLocaleString('zh-CN', { dateStyle: 'medium', timeStyle: 'short' })} 到期`)}
+      {balance?.stale && ' · 待刷新'}
     </p></div>}
     <div className="membership-notice"><Icon name="clock" size={20} aria-hidden="true" /><p><strong>暂未开放购买。</strong>以下月度套餐供预览。</p></div>
 

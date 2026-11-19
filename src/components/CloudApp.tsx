@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import type { AuthChangeEvent, Session } from '@supabase/supabase-js'
 import App from '../App'
 import { getCloudAccessToken, getCloudClient, MIN_CLOUD_PASSWORD_LENGTH, readNeonMembership, requestCloudPasswordReset, saveCloudPassword, type CloudMembership } from '../lib/cloud/client'
+import { MembershipBalanceProvider } from '../lib/cloud/membershipBalance'
 import { setApiTokenProvider } from '../lib/apiFetch'
 import { getDatabaseAccount, selectDatabaseAccount, setDatabaseTrackingEnabled } from '../lib/db'
 import { createCloudSync, type CloudConflict, type CloudSyncState, type CloudTransport } from '../lib/cloud/sync'
@@ -224,7 +225,7 @@ function AccountWorkspace({ client, email, onSignOut, initialTab, accountError, 
   const voiceEngine = useRef<ReturnType<typeof createVoiceHistorySync> | null>(null)
   const [voiceState, setVoiceState] = useState<VoiceCloudState>({ phase: 'waiting', message: '语音历史等待同步' })
   const onReady = useCallback(() => setAppReady(true), [])
-  const refreshMembership = useCallback(async () => (await readNeonMembership(client)).membership, [client])
+  const refreshMembership = useCallback(async (signal: AbortSignal) => (await readNeonMembership(client, signal)).membership, [client])
   const onBusyChange = useCallback((value: boolean) => {
     busy.current = value
     setWorkspaceBusy(value)
@@ -284,9 +285,11 @@ function AccountWorkspace({ client, email, onSignOut, initialTab, accountError, 
       </div>)}
     </section>}
     {!cacheReady && appReady && <p className="cloud-cache-wait" role="status">正在恢复账号数据…</p>}
-    <div inert={appReady && !cacheReady ? true : undefined}><App initialTab={initialTab} onReady={onReady} onBusyChange={onBusyChange} dataReady={cacheReady && state.phase === 'synced'} accountMembership={membership} refreshMembership={membership ? refreshMembership : undefined} account={{ email, error: accountError, syncMessage: `${state.message} · ${voiceState.message}`, onSignOut, signOutDisabled: state.phase === 'syncing', onResetPassword: async () => {
-      const result = await requestCloudPasswordReset(client, email, `${window.location.origin}/auth/update-password`)
-      if (result.error) throw result.error
-    } }} /></div>
+    <MembershipBalanceProvider membership={membership} load={refreshMembership}>
+      <div inert={appReady && !cacheReady ? true : undefined}><App initialTab={initialTab} onReady={onReady} onBusyChange={onBusyChange} dataReady={cacheReady && state.phase === 'synced'} accountMembership={membership} account={{ email, error: accountError, syncMessage: `${state.message} · ${voiceState.message}`, onSignOut, signOutDisabled: state.phase === 'syncing', onResetPassword: async () => {
+        const result = await requestCloudPasswordReset(client, email, `${window.location.origin}/auth/update-password`)
+        if (result.error) throw result.error
+      } }} /></div>
+    </MembershipBalanceProvider>
   </>
 }
