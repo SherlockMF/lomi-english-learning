@@ -5,7 +5,7 @@ import { afterEach, beforeEach, vi } from 'vitest'
 import App from './App'
 import { clearDatabase, closeDatabase, getUserDataSnapshot, initializeDatabase, putSettings, putStudyTimeEntry, writeBatch } from './lib/db'
 import { DEFAULT_SETTINGS, type ReviewAttempt } from './domain/types'
-import { handcraftedSeedWords } from './data/seedVocabulary'
+import { handcraftedSeedWords, loadSeedPack } from './data/seedVocabulary'
 import { LIST_IDS } from './data/vocabularyLists'
 import * as dictionary from './lib/dictionary'
 import * as dictionarySenses from './data/dictionarySenses'
@@ -412,6 +412,9 @@ describe('App integration', () => {
   }, 30_000)
 
   it('adds and removes a library word from priority study without deleting its data', async () => {
+    const { words, memberships } = await loadSeedPack()
+    const seedWord = words.find((word) => word.expression === 'abandon')!
+    await initializeDatabase([seedWord], memberships.filter((item) => item.wordId === seedWord.id))
     const user = userEvent.setup()
     render(<App />)
     await screen.findByText('今日学习计划', {}, { timeout: 20_000 })
