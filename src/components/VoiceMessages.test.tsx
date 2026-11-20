@@ -9,7 +9,7 @@ import { Blob as NodeBlob } from 'node:buffer'
 import { clearVoiceHistory, listVoiceHistory, readVoiceHistory } from '../lib/voice/history'
 import { VoicePractice } from './VoicePractice'
 
-const mocks = vi.hoisted(() => ({ start: vi.fn(), send: vi.fn(), end: vi.fn(), record: vi.fn(), finish: vi.fn(), cancel: vi.fn(), createUrl: vi.fn(), revokeUrl: vi.fn() }))
+const mocks = vi.hoisted(() => ({ start: vi.fn(), send: vi.fn(), end: vi.fn(), prepare: vi.fn(), closeAudio: vi.fn(), record: vi.fn(), finish: vi.fn(), cancel: vi.fn(), createUrl: vi.fn(), revokeUrl: vi.fn() }))
 vi.mock('../lib/voice/config', () => ({ useVoiceConfig: () => ({ config: { configured: true }, error: '', reload: vi.fn() }) }))
 vi.mock('../lib/voice/messages', async (original) => {
   const actual = await original<typeof import('../lib/voice/messages')>()
@@ -17,11 +17,13 @@ vi.mock('../lib/voice/messages', async (original) => {
 })
 vi.mock('../lib/voice/audio', async (original) => {
   const actual = await original<typeof import('../lib/voice/audio')>()
-  return { ...actual, VoiceRecorder: class { start = mocks.record; finish = mocks.finish; cancel = mocks.cancel } }
+  return { ...actual, prepareVoiceRecording: mocks.prepare, VoiceRecorder: class { start = mocks.record; finish = mocks.finish; cancel = mocks.cancel } }
 })
 beforeEach(() => {
   vi.clearAllMocks()
   mocks.start.mockResolvedValue(undefined); mocks.record.mockResolvedValue(undefined)
+  mocks.closeAudio.mockResolvedValue(undefined)
+  mocks.prepare.mockReturnValue({ context: { close: mocks.closeAudio }, ready: Promise.resolve() })
   mocks.finish.mockResolvedValue(new Uint8Array(32000))
   mocks.send.mockImplementation(async (id) => ({ id, userText: 'A coffee, please.', text: 'Of course.', audio: 'AAAAAA==', usage: {}, sampleRate: 24000 }))
   mocks.createUrl.mockImplementation(() => `blob:test-${mocks.createUrl.mock.calls.length}`)
@@ -44,6 +46,44 @@ async function record(user: ReturnType<typeof userEvent.setup>) {
   await user.click(await screen.findByRole('button', { name: '结束录音并发送' }))
 }
 describe('VoiceMessages', () => {
+  it('prepares audio before the session is ready and records on pointer down', async () => {
+    let connect!: () => void
+    mocks.start.mockImplementationOnce(() => new Promise<void>((resolve) => { connect = resolve }))
+    render(<VoiceMessages items={[]} accent="uk" selection={DEFAULT_VOICE_SELECTION} onSelection={vi.fn()} onBack={vi.fn()} />)
+    const user = userEvent.setup()
+    await user.click(screen.getByRole('button', { name: '开始语音消息练习' }))
+    expect(mocks.prepare).toHaveBeenCalledOnce()
+    expect(mocks.record).not.toHaveBeenCalled()
+    await act(async () => connect())
+
+    const button = screen.getByRole('button', { name: '按住说话' })
+    Object.assign(button, { setPointerCapture: vi.fn(), hasPointerCapture: () => false })
+    await user.pointer({ keys: '[TouchA>]', target: button })
+    expect(mocks.record).toHaveBeenCalledOnce()
+    expect(mocks.prepare).toHaveBeenCalledOnce()
+    expect(mocks.send).not.toHaveBeenCalled()
+    await user.pointer({ keys: '[/TouchA]', target: button })
+    expect(mocks.send).toHaveBeenCalledOnce()
+    await user.click(screen.getByRole('button', { name: '结束练习' }))
+    expect(mocks.closeAudio).toHaveBeenCalledOnce()
+  })
+  it('cancels a hold released while microphone permission is pending', async () => {
+    let grant!: () => void
+    mocks.record.mockImplementationOnce(() => new Promise<void>((resolve) => { grant = resolve }))
+    render(<VoiceMessages items={[]} accent="uk" selection={DEFAULT_VOICE_SELECTION} onSelection={vi.fn()} onBack={vi.fn()} />)
+    const user = userEvent.setup()
+    await user.click(screen.getByRole('button', { name: '开始语音消息练习' }))
+    const button = screen.getByRole('button', { name: '按住说话' })
+    Object.assign(button, { setPointerCapture: vi.fn(), hasPointerCapture: () => false })
+    await user.pointer({ keys: '[TouchA>]', target: button })
+    expect(button).toHaveTextContent('准备中')
+    await user.pointer({ keys: '[/TouchA]', target: button })
+    await act(async () => grant())
+    expect(mocks.cancel).toHaveBeenCalledOnce()
+    expect(mocks.finish).not.toHaveBeenCalled()
+    expect(mocks.send).not.toHaveBeenCalled()
+    expect(button).toHaveTextContent('按住说话')
+  })
   it('persists both audio messages and restores playback after remount', async () => {
     vi.stubGlobal('Blob', NodeBlob)
     const { user, view } = await open()

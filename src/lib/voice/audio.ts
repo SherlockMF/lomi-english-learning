@@ -66,9 +66,15 @@ export function monitorMicrophone(stream: MediaStream, onLevel: (level: number) 
   } catch { void context?.close().catch(() => undefined); return () => onLevel(0) }
 }
 
+export function prepareVoiceRecording() {
+  if (!navigator.mediaDevices?.getUserMedia || typeof AudioContext === 'undefined') throw new Error('当前浏览器不支持录音，请使用 localhost 或 HTTPS 下的最新版浏览器。')
+  const context = new AudioContext({ sampleRate: 16000 })
+  const ready = Promise.resolve().then(() => context.audioWorklet.addModule(new URL('./recorder.worklet.js', import.meta.url).href))
+  return { context, ready }
+}
+
 export class VoiceRecorder {
   private stream?: MediaStream
-  private context?: AudioContext
   private node?: AudioWorkletNode
   private source?: MediaStreamAudioSourceNode
   private sink?: GainNode
@@ -76,19 +82,18 @@ export class VoiceRecorder {
   private size = 0
   private closed = false
   private stopped?: () => void
-  constructor(private onLevel: (level: number) => void) {}
+  constructor(private onLevel: (level: number) => void, private audio: ReturnType<typeof prepareVoiceRecording>) {}
 
   async start(): Promise<void> {
-    if (!navigator.mediaDevices?.getUserMedia || typeof AudioContext === 'undefined') throw new Error('当前浏览器不支持录音，请使用 localhost 或 HTTPS 下的最新版浏览器。')
-    const context = new AudioContext({ sampleRate: 16000 })
-    this.context = context
-    await context.resume()
-    if (this.closed) return
-    const stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true }, video: false })
-    if (this.closed) { stream.getTracks().forEach((track) => track.stop()); return }
-    this.stream = stream
+    const { context, ready } = this.audio
     try {
-      await context.audioWorklet.addModule(new URL('./recorder.worklet.js', import.meta.url).href)
+      const media = navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true }, video: false })
+        .then((stream) => {
+          if (this.closed) stream.getTracks().forEach((track) => track.stop())
+          else this.stream = stream
+          return stream
+        })
+      const [stream] = await Promise.all([media, context.resume(), ready])
       if (this.closed) return
       const node = new AudioWorkletNode(context, 'recall-recorder')
       this.node = node
@@ -118,19 +123,23 @@ export class VoiceRecorder {
     const samples = new Float32Array(this.size)
     let offset = 0
     for (const chunk of this.chunks) { samples.set(chunk, offset); offset += chunk.length }
-    const pcm = pcm16(samples, this.context?.sampleRate ?? 16000)
+    const pcm = pcm16(samples, this.audio.context.sampleRate)
     this.cancel()
     return pcm
   }
 
   cancel() {
+    if (this.closed) return
     this.closed = true
     this.stopped?.()
     this.stream?.getTracks().forEach((track) => track.stop())
     this.source?.disconnect(); this.node?.disconnect(); this.sink?.disconnect()
-    // oxlint-disable-next-line prefer-add-event-listener -- Remove the recorder's single owned port handler on cancellation.
-    if (this.node) this.node.port.onmessage = null
-    void this.context?.close().catch(() => undefined)
+    if (this.node) {
+      // oxlint-disable-next-line prefer-add-event-listener -- Remove the recorder's single owned port handler on cancellation.
+      this.node.port.onmessage = null
+      // oxlint-disable-next-line require-post-message-target-origin -- MessagePort.postMessage has no targetOrigin argument.
+      if (!this.stopped) this.node.port.postMessage('cancel')
+    }
     this.chunks = []; this.size = 0
     this.onLevel(0)
   }

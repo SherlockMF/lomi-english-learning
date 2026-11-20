@@ -20,6 +20,8 @@ const ERROR_TYPES = new Set(['invalid_request_error', 'authentication_error', 'p
 const ERROR_CODES = new Set(['invalid_value', 'invalid_request', 'invalid_event', 'unknown_parameter', 'missing_required_parameter', 'unsupported_parameter', 'rate_limit_exceeded', 'server_error', 'response_already_in_progress', 'response_cancel_not_active', '400', '401', '403', '429', '500', '503'])
 const ERROR_PARAMS = new Set(['session', 'session.modalities', 'session.voice', 'session.audio', 'session.audio.output.voice', 'session.instructions', 'session.input_audio_transcription', 'session.input_audio_transcription.model', 'session.turn_detection', 'session.turn_detection.type', 'session.turn_detection.threshold', 'session.turn_detection.silence_duration_ms', 'session.enable_search', 'session.max_tokens', 'response.create', 'response.cancel'])
 const VAD_TYPES = new Set(['server_vad', 'semantic_vad', 'semantic_vad_ec'])
+const TURN_END_SILENCE_MS = 1600
+const TURN_DETECTION_FIELDS = new Set(['session.turn_detection', 'session.turn_detection.type', 'session.turn_detection.silence_duration_ms'])
 
 function serviceErrorNotice(error: Record<string, unknown>, stage: string): string {
   // Never echo arbitrary provider messages, which may include private values.
@@ -49,6 +51,7 @@ export class VoiceSession {
   private closed = false
   private configured = false
   private initialVAD = '未返回'
+  private useDefaultVAD = false
   private acknowledged = false
   private startedAt = 0
   private accumulatedMs = 0
@@ -180,14 +183,7 @@ export class VoiceSession {
           : typeof vadType === 'string' && VAD_TYPES.has(vadType) ? vadType : '未知类型'
         this.channel = channel
         this.configured = true
-        // Leave VAD unchanged while diagnosing the provider's turn_detection rejection.
-        this.send({ type: 'session.update', session: {
-          modalities: ['text', 'audio'],
-          audio: { output: { voice: 'Tina' } },
-          instructions: voiceInstructions(this.options),
-          input_audio_transcription: { model: 'qwen3-asr-flash-realtime' },
-          enable_search: false, max_tokens: 512,
-        } })
+        this.configureSession()
         void this.wait(Promise.all(this.senders.map(({ sender, track }) => sender.replaceTrack(track))))
           .catch(() => { if (!this.closed) this.finish('error', '无法恢复麦克风音频发送，请重新开始。') })
       }
@@ -197,6 +193,17 @@ export class VoiceSession {
     channel.addEventListener('close', () => {
       if (channel === this.channel && !this.closed) this.finish('error', '语音控制连接已断开，请手动重新开始。')
     })
+  }
+
+  private configureSession() {
+    this.send({ type: 'session.update', session: {
+      modalities: ['text', 'audio'],
+      audio: { output: { voice: 'Tina' } },
+      instructions: voiceInstructions(this.options),
+      input_audio_transcription: { model: 'qwen3-asr-flash-realtime' },
+      enable_search: false, max_tokens: 512,
+      ...(this.useDefaultVAD ? {} : { turn_detection: { type: 'server_vad', silence_duration_ms: TURN_END_SILENCE_MS } }),
+    } })
   }
 
   private send(event: Record<string, unknown>): boolean {
@@ -210,6 +217,13 @@ export class VoiceSession {
   private handleEvent(event: Record<string, unknown>) {
     if (event.type === 'error') {
       const error = asRecord(event.error)
+      if (this.configured && !this.acknowledged && !this.useDefaultVAD && error.type === 'invalid_request_error'
+        && typeof error.param === 'string' && TURN_DETECTION_FIELDS.has(error.param)) {
+        // Some WebRTC sessions reject overrides. Retry on the same connection before enabling the mic.
+        this.useDefaultVAD = true
+        this.configureSession()
+        return
+      }
       // Recover only an explicit cancellation failure after that same response
       // has ended; unrelated or unrecognized provider errors remain fatal.
       if (this.cancellation?.completed && Date.now() - this.cancellation.requestedAt < 5000
@@ -221,7 +235,7 @@ export class VoiceSession {
       const stage = this.acknowledged ? '对话阶段' : this.configured ? '会话配置阶段' : '会话建立阶段'
       const diagnostic = this.configured && typeof error.param === 'string' && ERROR_PARAMS.has(error.param)
         && error.param.startsWith('session.turn_detection')
-        ? ` 连接诊断 RTC-D1：初始 VAD=${this.initialVAD}；客户端未发送 turn_detection。` : ''
+        ? ` 连接诊断 RTC-D1：初始 VAD=${this.initialVAD}；客户端${this.useDefaultVAD ? '未发送' : '已发送'} turn_detection。` : ''
       this.finish('error', serviceErrorNotice(error, stage) + diagnostic)
       return
     }
@@ -236,7 +250,7 @@ export class VoiceSession {
       clearTimeout(this.timeout)
       this.startedAt = this.activityAt = Date.now()
       this.stream?.getAudioTracks().forEach((track) => { track.enabled = !this.snapshot.muted })
-      this.update({ phase: 'ready' })
+      this.update({ phase: 'ready', notice: this.useDefaultVAD ? '语音服务未接受较长的停顿，已恢复默认断句。' : '' })
       this.interval = setInterval(() => {
         if (this.suspended) return
         this.update({ elapsedSeconds: Math.floor((this.accumulatedMs + Date.now() - this.startedAt) / 1000) })

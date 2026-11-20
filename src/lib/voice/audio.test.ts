@@ -1,5 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { pcm16, wavBlob, microphoneLevel, VoiceRecorder, monitorMicrophone } from './audio'
+import { runInNewContext } from 'node:vm'
+import { pcm16, wavBlob, microphoneLevel, VoiceRecorder, monitorMicrophone, prepareVoiceRecording } from './audio'
+import recorderWorklet from './recorder.worklet.js?raw'
 
 afterEach(() => vi.unstubAllGlobals())
 
@@ -30,11 +32,16 @@ describe('voice audio', () => {
   })
   it('stops a microphone that arrives after recording was cancelled', async () => {
     const close = vi.fn().mockResolvedValue(undefined)
-    vi.stubGlobal('AudioContext', class { resume = vi.fn().mockResolvedValue(undefined); close = close })
+    vi.stubGlobal('AudioContext', class {
+      audioWorklet = { addModule: vi.fn().mockResolvedValue(undefined) }
+      resume = vi.fn().mockResolvedValue(undefined)
+      close = close
+    })
     let grant: (value: MediaStream) => void = () => undefined
     const getUserMedia = vi.fn(() => new Promise<MediaStream>((resolve) => { grant = resolve }))
     vi.stubGlobal('navigator', { mediaDevices: { getUserMedia } })
-    const recorder = new VoiceRecorder(vi.fn())
+    const audio = prepareVoiceRecording()
+    const recorder = new VoiceRecorder(vi.fn(), audio)
     const started = recorder.start()
     await vi.waitFor(() => expect(getUserMedia).toHaveBeenCalled())
     recorder.cancel()
@@ -42,31 +49,88 @@ describe('voice audio', () => {
     grant({ getTracks: () => [{ stop }] } as unknown as MediaStream)
     await started
     expect(stop).toHaveBeenCalledOnce()
-    expect(close).toHaveBeenCalledOnce()
+    expect(close).not.toHaveBeenCalled()
+    await audio.context.close()
   })
-  it('flushes the final recorded chunk before producing PCM and closes all resources', async () => {
+  it('requests the microphone immediately while the audio context is resuming', async () => {
+    let resume!: () => void
+    const close = vi.fn().mockResolvedValue(undefined)
+    vi.stubGlobal('AudioContext', class {
+      audioWorklet = { addModule: vi.fn().mockResolvedValue(undefined) }
+      resume = () => new Promise<void>((resolve) => { resume = resolve })
+      close = close
+    })
+    const stop = vi.fn()
+    const getUserMedia = vi.fn().mockResolvedValue({ getTracks: () => [{ stop }] })
+    vi.stubGlobal('navigator', { mediaDevices: { getUserMedia } })
+    const audio = prepareVoiceRecording()
+    const recorder = new VoiceRecorder(vi.fn(), audio)
+    const started = recorder.start()
+    try {
+      expect(getUserMedia).toHaveBeenCalledOnce()
+    } finally {
+      recorder.cancel()
+      resume()
+      await started
+      await audio.context.close()
+    }
+    expect(stop).toHaveBeenCalledOnce()
+  })
+  it('reuses the prepared worklet across recordings and releases each microphone after flushing PCM', async () => {
     const stop = vi.fn(), close = vi.fn().mockResolvedValue(undefined), disconnect = vi.fn()
+    const addModule = vi.fn().mockResolvedValue(undefined)
     const stream = { getTracks: () => [{ stop }] }
-    vi.stubGlobal('navigator', { mediaDevices: { getUserMedia: vi.fn().mockResolvedValue(stream) } })
+    const getUserMedia = vi.fn().mockResolvedValue(stream)
+    const message = vi.fn()
+    vi.stubGlobal('navigator', { mediaDevices: { getUserMedia } })
     const connection = { connect: vi.fn(), disconnect }
     vi.stubGlobal('AudioContext', class {
-      sampleRate = 16000; destination = {}; audioWorklet = { addModule: vi.fn().mockResolvedValue(undefined) }
+      sampleRate = 16000; destination = {}; audioWorklet = { addModule }
       resume = vi.fn().mockResolvedValue(undefined); close = close
       createMediaStreamSource = () => connection
       createGain = () => ({ ...connection, gain: { value: 1 } })
     })
     vi.stubGlobal('AudioWorkletNode', class {
       connect = vi.fn(); disconnect = disconnect
-      port = { onmessage: null as ((event: { data: Float32Array | string }) => void) | null, postMessage: () => {
+      port = { onmessage: null as ((event: { data: Float32Array | string }) => void) | null, postMessage: (command: string) => {
+        message(command)
+        if (command !== 'stop') return
         this.port.onmessage?.({ data: new Float32Array(16000).fill(.1) })
         this.port.onmessage?.({ data: 'stopped' })
       } }
     })
-    const recorder = new VoiceRecorder(vi.fn())
-    await recorder.start()
-    expect((await recorder.finish()).length).toBe(32000)
-    expect(stop).toHaveBeenCalledOnce(); expect(close).toHaveBeenCalledOnce()
-    expect(disconnect).toHaveBeenCalledTimes(3)
+    const audio = prepareVoiceRecording()
+    await audio.ready
+    expect(addModule).toHaveBeenCalledOnce()
+    expect(getUserMedia).not.toHaveBeenCalled()
+    const first = new VoiceRecorder(vi.fn(), audio)
+    await first.start()
+    expect((await first.finish()).length).toBe(32000)
+    const second = new VoiceRecorder(vi.fn(), audio)
+    await second.start()
+    second.cancel()
+    expect(message).toHaveBeenLastCalledWith('cancel')
+    expect(addModule).toHaveBeenCalledOnce()
+    expect(stop).toHaveBeenCalledTimes(2)
+    expect(disconnect).toHaveBeenCalledTimes(6)
+    expect(close).not.toHaveBeenCalled()
+    await audio.context.close()
+  })
+  it.each(['stop', 'cancel'])('terminates the worklet on %s and only flushes audio on stop', (command) => {
+    const port = { close: vi.fn(), postMessage: vi.fn(), onmessage: (_event: { data: string }) => undefined }
+    let processor!: { process: (inputs: Float32Array[][]) => boolean }
+    runInNewContext(recorderWorklet, {
+      AudioWorkletProcessor: class { port = port },
+      registerProcessor: (_name: string, Processor: new () => typeof processor) => { processor = new Processor() },
+    })
+    expect(processor.process([[new Float32Array([0.5])]])).toBe(true)
+    port.onmessage({ data: command })
+    expect(processor.process([])).toBe(false)
+    expect(port.close).toHaveBeenCalledOnce()
+    if (command === 'stop') {
+      expect(Array.from(port.postMessage.mock.calls[0][0])).toEqual([0.5])
+      expect(port.postMessage).toHaveBeenLastCalledWith('stopped')
+    } else expect(port.postMessage).not.toHaveBeenCalled()
   })
   it('meters only a live enabled track and cancels its animation on cleanup', () => {
     const track = { enabled: true, readyState: 'live' }, close = vi.fn().mockResolvedValue(undefined)

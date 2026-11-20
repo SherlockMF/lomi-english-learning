@@ -122,27 +122,32 @@ describe('voice lifecycle', () => {
     await call.start()
     const pc = Peer.instances[0]
     pc.channel.event({ type: 'session.created', session: { turn_detection: vad, id: 'private-session-id' } })
-    pc.channel.event({ type: 'error', error: {
+    const rejection = { type: 'error', error: {
       type: 'invalid_request_error', param: 'session.turn_detection', message: 'private-provider-message',
-    } })
+    } }
+    pc.channel.event(rejection)
+    pc.channel.event(rejection)
     expect(call.snapshot.notice).toContain('RTC-D1')
     expect(call.snapshot.notice).toContain(`初始 VAD=${expected}`)
     expect(call.snapshot.notice).toContain('客户端未发送 turn_detection')
     expect(call.snapshot.notice).not.toContain('private')
-    expect(pc.channel.sent[0].session).not.toHaveProperty('turn_detection')
+    expect(pc.channel.sent).toHaveLength(2)
+    expect(pc.channel.sent[1].session).not.toHaveProperty('turn_detection')
     expect(track.enabled).toBe(false)
     expect(track.stop).toHaveBeenCalledTimes(1)
   })
 
-  it('keeps provider turn detection defaults and only enables capture after acknowledgement', async () => {
+  it('configures a longer server-side speaking pause before enabling capture', async () => {
     const call = session()
     await call.start()
     const pc = Peer.instances[0]
     const txt = new Channel()
     pc.dispatchEvent(Object.assign(new Event('datachannel'), { channel: txt }))
     txt.event({ type: 'session.created' })
-    expect(txt.sent[0]).toMatchObject({ type: 'session.update', session: { input_audio_transcription: { model: 'qwen3-asr-flash-realtime' } } })
-    expect(txt.sent[0].session).not.toHaveProperty('turn_detection')
+    expect(txt.sent[0]).toMatchObject({ type: 'session.update', session: {
+      input_audio_transcription: { model: 'qwen3-asr-flash-realtime' },
+      turn_detection: { type: 'server_vad', silence_duration_ms: 1600 },
+    } })
     expect(track.enabled).toBe(false)
     txt.event({ type: 'session.updated' })
     expect(track.enabled).toBe(true)
@@ -151,6 +156,24 @@ describe('voice lifecycle', () => {
     call.end()
     expect(track.stop).toHaveBeenCalledTimes(1)
     expect(pc.close).toHaveBeenCalledTimes(1)
+  })
+
+  it('keeps the call usable if the provider rejects the longer silence window', async () => {
+    const call = session()
+    await call.start()
+    const pc = Peer.instances[0]
+    pc.channel.event({ type: 'session.created' })
+    pc.channel.event({ type: 'error', error: { type: 'invalid_request_error', param: 'session.turn_detection.silence_duration_ms' } })
+    expect(track.enabled).toBe(false)
+    expect(call.snapshot.phase).toBe('connecting')
+    expect(pc.channel.sent[1]).toMatchObject({ type: 'session.update', session: { instructions: expect.any(String) } })
+    expect(pc.channel.sent[1].session).not.toHaveProperty('turn_detection')
+    pc.channel.event({ type: 'session.updated' })
+    expect(call.snapshot.phase).toBe('ready')
+    expect(call.snapshot.notice).toContain('默认断句')
+    expect(track.enabled).toBe(true)
+    expect(request).toHaveBeenCalledTimes(1)
+    call.end()
   })
 
   it('releases a late microphone permission result after cancelling connection setup', async () => {

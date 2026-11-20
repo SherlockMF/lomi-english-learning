@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { SpeechAccent } from '../domain/types'
 import { useVoiceConfig } from '../lib/voice/config'
-import { VoiceRecorder, fromBase64, wavBlob } from '../lib/voice/audio'
+import { VoiceRecorder, fromBase64, prepareVoiceRecording, wavBlob } from '../lib/voice/audio'
 import { VoiceMessageError, VoiceMessageSession } from '../lib/voice/messages'
 import { VOICE_SCENARIOS, voiceInstructions } from '../lib/voice/scenarios'
 import { generateVoiceFeedback, type VoiceFeedback } from '../lib/voice/feedback'
@@ -33,6 +33,7 @@ export function VoiceMessages({ items, accent, selection, onSelection, onBack, o
   const [feedbackBusy, setFeedbackBusy] = useState(false)
   const [tokens, setTokens] = useState({ input: 0, output: 0 })
   const callRef = useRef<VoiceMessageSession | null>(null)
+  const recordingAudioRef = useRef<ReturnType<typeof prepareVoiceRecording> | null>(null)
   const recorderRef = useRef<VoiceRecorder | null>(null)
   const finishingRef = useRef(false)
   const meterRef = useRef<MicrophoneIndicatorHandle>(null)
@@ -58,6 +59,18 @@ export function VoiceMessages({ items, accent, selection, onSelection, onBack, o
     saveHistory({ turns: messages.map(({ pcm: _pcm, audioUrl: _url, audioBlob, ...turn }) => ({ ...turn, audio: audioBlob })), feedback, elapsedSeconds: elapsedRef.current })
   }, [messages, feedback, active, saveHistory])
 
+  function prepareRecordingAudio() {
+    if (recordingAudioRef.current) return recordingAudioRef.current
+    const audio = prepareVoiceRecording()
+    recordingAudioRef.current = audio
+    void audio.ready.catch(() => { if (recordingAudioRef.current === audio) closeRecordingAudio() })
+    return audio
+  }
+  function closeRecordingAudio() {
+    const audio = recordingAudioRef.current
+    recordingAudioRef.current = null
+    if (audio) void audio.context.close().catch(() => undefined)
+  }
   function stopRecorder() {
     const recorder = recorderRef.current
     recorderRef.current = null
@@ -67,6 +80,7 @@ export function VoiceMessages({ items, accent, selection, onSelection, onBack, o
   }
   function end(message = '本次语音消息练习已结束。') {
     stopRecorder()
+    closeRecordingAudio()
     const call = callRef.current
     callRef.current = null
     call?.end()
@@ -88,7 +102,7 @@ export function VoiceMessages({ items, accent, selection, onSelection, onBack, o
     window.addEventListener('pagehide', pageHide)
     return () => {
       document.removeEventListener('visibilitychange', hidden); window.removeEventListener('pagehide', pageHide)
-      stopRecorder(); callRef.current?.end(); callRef.current = null
+      stopRecorder(); closeRecordingAudio(); callRef.current?.end(); callRef.current = null
       clearInterval(practiceTimer.current); feedbackRef.current?.abort(); clearAudio()
     }
     // Lifecycle cleanup uses only current refs, never a captured call or recording.
@@ -108,6 +122,7 @@ export function VoiceMessages({ items, accent, selection, onSelection, onBack, o
     setElapsed(0); setNotice(retryMessage ? '正在建立新会话，录音已保留。' : ''); setPhase('connecting')
     const call = new VoiceMessageSession()
     callRef.current = call
+    try { prepareRecordingAudio() } catch { /* Recording will report the error if preparation still fails on press. */ }
     try {
       const instructions = voiceInstructions({ scenario: selection.scenario, scenarioDescription, difficulty: selection.difficulty, accent, words: selectedWords })
       const previousMessages = retryMessage ? messages.filter((item) => item.final && item.text).slice(-6).map(({ role, text }) => ({ role, text: text.slice(0, 250) })) : []
@@ -129,6 +144,7 @@ export function VoiceMessages({ items, accent, selection, onSelection, onBack, o
       if (retryMessage) await send(retryMessage)
     } catch (error) {
       if (callRef.current !== call) return
+      closeRecordingAudio()
       callRef.current = null; call.end(); setPhase('error')
       setNotice(error instanceof Error ? error.message : '无法开始语音消息练习。')
     }
@@ -166,7 +182,7 @@ export function VoiceMessages({ items, accent, selection, onSelection, onBack, o
     if (!recorder) return
     clearInterval(recordingTimer.current)
     setCancelGesture(false)
-    if (!submit) { stopRecorder(); setRecordState('idle'); setNotice('录音已取消，没有发送。'); return }
+    if (!submit || recordState === 'starting') { stopRecorder(); setRecordState('idle'); setNotice('录音已取消，没有发送。'); return }
     if (finishingRef.current) return
     finishingRef.current = true; setRecordState('stopping')
     let pcm: Uint8Array<ArrayBuffer>
@@ -187,9 +203,10 @@ export function VoiceMessages({ items, accent, selection, onSelection, onBack, o
   async function beginRecording() {
     if (phase !== 'ready' || recordState !== 'idle' || recorderRef.current || !callRef.current || messages.some((message) => message.status === 'failed')) return
     playbackRef.current?.pause(); setNotice(''); setSeconds(0); setRecordState('starting')
-    const recorder = new VoiceRecorder((level) => meterRef.current?.update(level))
-    recorderRef.current = recorder
+    let recorder: VoiceRecorder | undefined
     try {
+      recorder = new VoiceRecorder((level) => meterRef.current?.update(level), prepareRecordingAudio())
+      recorderRef.current = recorder
       await recorder.start()
       if (recorderRef.current !== recorder) return
       setRecordState('recording')
@@ -200,7 +217,7 @@ export function VoiceMessages({ items, accent, selection, onSelection, onBack, o
         if (recordedSeconds >= 60) void finishRecording(!gesture.current.cancel)
       }, 200)
     } catch (error) {
-      if (recorderRef.current !== recorder) return
+      if (recorder && recorderRef.current !== recorder) return
       stopRecorder(); setRecordState('idle')
       setNotice(error instanceof DOMException && ['NotAllowedError', 'SecurityError'].includes(error.name) ? '麦克风权限被拒绝，请在浏览器中允许录音后重试。' : '无法录制语音，请检查麦克风和浏览器支持。')
     }

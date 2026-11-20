@@ -6,17 +6,21 @@ class RecallRecorder extends AudioWorkletProcessor {
     this.offset = 0
     // oxlint-disable-next-line prefer-add-event-listener -- Single worklet-owned handler; assigning it starts the MessagePort.
     this.port.onmessage = ({ data }) => {
-      if (data !== 'stop') return
+      if (data !== 'stop' && data !== 'cancel') return
       this.recording = false
-      // oxlint-disable-next-line require-post-message-target-origin -- MessagePort.postMessage has no targetOrigin argument.
-      if (this.offset) this.port.postMessage(this.buffer.slice(0, this.offset))
-      // oxlint-disable-next-line require-post-message-target-origin -- MessagePort.postMessage has no targetOrigin argument.
-      this.port.postMessage('stopped')
+      if (data === 'stop') {
+        // oxlint-disable-next-line require-post-message-target-origin -- MessagePort.postMessage has no targetOrigin argument.
+        if (this.offset) this.port.postMessage(this.buffer.slice(0, this.offset))
+        // oxlint-disable-next-line require-post-message-target-origin -- MessagePort.postMessage has no targetOrigin argument.
+        this.port.postMessage('stopped')
+      }
+      this.port.close()
     }
   }
   process(inputs) {
+    if (!this.recording) return false
     const input = inputs[0]?.[0]
-    if (!this.recording || !input) return true
+    if (!input) return true
     for (const sample of input) {
       this.buffer[this.offset++] = sample
       if (this.offset === this.buffer.length) {
