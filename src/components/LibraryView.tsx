@@ -9,6 +9,7 @@ import { splitListValues } from '../lib/text'
 import { useEscapeToClose } from '../lib/useEscapeToClose'
 import { useFocusTrap } from '../lib/useFocusTrap'
 import { WordEntryDialog } from './WordEntryDialog'
+import { StudyCategoryPicker } from './StudyCategoryPicker'
 import { Icon } from './Icon'
 import { expressionKey, groupWordsByExpression } from '../lib/wordSenses'
 
@@ -21,6 +22,9 @@ type VocabularyEditPatch = Pick<
 interface LibraryViewProps {
   onRequestLogin?: () => void
   items: VocabularyItem[]
+  activeCategories: readonly SystemListSlug[]
+  onSaveStudyCategories: (categories: SystemListSlug[]) => Promise<void>
+  expansionOnSave?: boolean
   evidenceByItemId: ReadonlyMap<string, LearningEvidence>
   onToggleStatus: (item: VocabularyItem) => Promise<void>
   onToggleKnown: (item: VocabularyItem) => Promise<void>
@@ -46,6 +50,9 @@ const expansionCategories = SYSTEM_LIST_ORDER.filter((slug) => !filters.some((it
 
 export function LibraryView({
   items,
+  activeCategories,
+  onSaveStudyCategories,
+  expansionOnSave,
   evidenceByItemId,
   onToggleStatus,
   onToggleKnown,
@@ -63,6 +70,10 @@ export function LibraryView({
   const [selectedSenses, setSelectedSenses] = useState<Record<string, string>>({})
   const [visibleCount, setVisibleCount] = useState(24)
   const [editing, setEditing] = useState<{ item: VocabularyItem } | null>(null)
+  const [categoryDraft, setCategoryDraft] = useState<SystemListSlug[] | null>(null)
+  const [savingCategories, setSavingCategories] = useState(false)
+  const [categoryError, setCategoryError] = useState(false)
+  const [categoriesSaved, setCategoriesSaved] = useState(false)
   const entryTrigger = useRef<HTMLElement | null>(null)
   const entryFallback = useRef<HTMLElement | null>(null)
   const searchInput = useRef<HTMLInputElement | null>(null)
@@ -119,6 +130,28 @@ export function LibraryView({
     target?.focus()
   }
 
+  function editStudyCategories() {
+    if (onRequestLogin) { onRequestLogin(); return }
+    setCategoryDraft([...activeCategories])
+    setCategoriesSaved(false)
+    setCategoryError(false)
+  }
+
+  async function saveStudyCategories() {
+    if (!categoryDraft?.length || savingCategories) return
+    setSavingCategories(true)
+    setCategoryError(false)
+    try {
+      await onSaveStudyCategories(categoryDraft)
+      setCategoryDraft(null)
+      setCategoriesSaved(true)
+    } catch {
+      setCategoryError(true)
+    } finally {
+      setSavingCategories(false)
+    }
+  }
+
   return (
     <div className="page-stack library-page">
       <section className="page-header library-header">
@@ -128,6 +161,31 @@ export function LibraryView({
           <p className="page-intro">同词归并，义项分别学习。点击词义查看例句与学习情况。</p>
         </div>
         <div className="library-total"><strong>{items.length}</strong><span>个独立义项</span></div>
+      </section>
+
+      <section className="panel study-library" aria-labelledby="study-library-title">
+        <div className="study-library-heading">
+          <div>
+            <h2 id="study-library-title">学习词库</h2>
+            <p>{activeCategories.slice(0, 3).map(slug => categoryLabels[slug]).join('、')}{activeCategories.length > 3 ? `等 ${activeCategories.length} 类` : ''}</p>
+          </div>
+          {categoryDraft === null && <button type="button" className="secondary-button" onClick={editStudyCategories}>管理学习词库</button>}
+        </div>
+        {categoryDraft !== null && (
+          <fieldset disabled={savingCategories}>
+            <StudyCategoryPicker categories={categoryDraft} onChange={setCategoryDraft} />
+            {expansionOnSave && <p className="form-note">保存后会把所选方向的新增内容加入你的词库。</p>}
+            <p className="form-note">取消勾选后停止安排该类新词，已学词继续复习。</p>
+            {categoryError && <p role="alert">学习词库未保存，请重试。</p>}
+            <div className="dialog-actions">
+              <button type="button" className="secondary-button" onClick={() => setCategoryDraft(null)}>取消</button>
+              <button type="button" className="primary-button" disabled={categoryDraft.length === 0} onClick={() => void saveStudyCategories()}>
+                {savingCategories ? '正在保存…' : '保存学习词库'}
+              </button>
+            </div>
+          </fieldset>
+        )}
+        {categoriesSaved && <p className="form-note" role="status">学习词库已更新。</p>}
       </section>
 
       <section className="library-tools" aria-label="词库筛选">
@@ -160,7 +218,7 @@ export function LibraryView({
         <span>找到 {entries.length} 个词条 · {filtered.length} 个义项</span>
         <span>已会或暂停的内容不会进入每日训练</span>
       </div>
-      {filter === 'my-vocabulary' && <p className="form-note">每日新词约 80% 来自优先学习，约 20% 来自其他词库，四舍五入；一方不足由另一方补齐。普通词分类跨天累计，在相近难度下按日常、商业、金融、会计 4:3:2:1 加权选取，不每天重置。训练先完成优先词，再学习普通词；暂停的词不参与安排。</p>}
+      {filter === 'my-vocabulary' && <p className="form-note">每日新词约 80% 来自个人优先学习清单，约 20% 来自所选词库。一方不足由另一方补齐。所选词库按优先级跨天分配新词，暂停的词不参与安排。</p>}
 
       {filtered.length ? (
         <>

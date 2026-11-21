@@ -1,4 +1,4 @@
-import type { Word, WordListItem } from '../domain/types'
+import type { SystemListSlug, Word, WordListItem } from '../domain/types'
 import { SEED_CONTENT_REVISION } from './seedContentRevision'
 import { listSlugsForSeedCategory } from './listAssignment'
 import { listIdForSlug } from './vocabularyLists'
@@ -1128,5 +1128,17 @@ export async function loadSeedPack(): Promise<BundledSeed> {
   return {
     words: [...handcraftedSeedWords, ...bundled.words],
     memberships: [...handcraftedSeedMemberships, ...bundled.memberships],
+  }
+}
+
+export function selectAccountSeed(seed: BundledSeed, includeOriginal: boolean, expansionCategories: readonly SystemListSlug[] = []): BundledSeed {
+  const listIds = new Set(expansionCategories.map(listIdForSlug))
+  const memberships = seed.memberships.filter(membership => membership.wordId.startsWith('v6-')
+    ? listIds.has(membership.listId)
+    : includeOriginal)
+  const expandedIds = new Set(memberships.map(membership => membership.wordId))
+  return {
+    words: seed.words.filter(word => word.id.startsWith('v6-') ? expandedIds.has(word.id) : includeOriginal),
+    memberships,
   }
 }

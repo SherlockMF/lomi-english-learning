@@ -152,7 +152,7 @@ export function SettingsDialog({
         <div className="settings-section">
           <div className="settings-copy">
             <h3>每日节奏</h3>
-            <p>每日新表达按优先学习约 80%、其他词库约 20% 分配，四舍五入；一方不足由另一方补齐。只记录学习时间，不限时，可分多次完成。</p>
+            <p>每日新表达按个人优先学习清单约 80%、所选词库约 20% 分配，一方不足由另一方补齐。可以分多次完成。</p>
           </div>
           <label className="text-setting">
             <span>每日新表达数量 <small>0—100 个；0 表示只复习</small></span>
@@ -167,7 +167,7 @@ export function SettingsDialog({
         <div className="settings-section">
           <div className="settings-copy">
             <h3>词汇难度</h3>
-            <p>普通新词优先选取目标等级，同级不足时补充相邻等级；分类跨天累计，按日常、商业、金融、会计 4:3:2:1 的长期比例选取，不限定天数或每组词数，也不每天重置。历史偏差逐步补齐，缺词时由可用类别补位。优先学习保持原顺序。修改等级或开关后重新累计表现。</p>
+            <p>各词库优先选取目标等级，同级不足时补充相邻等级。新词按所选词库的优先级跨天分配，可到「词库」调整。修改等级或开关后重新累计表现。</p>
           </div>
           <label className="text-setting"><span>起始词汇难度</span><select aria-label="起始词汇难度" value={vocabularyLevel} onChange={(event) => setVocabularyLevel(event.target.value as VocabularyLevel)}>
             {VOCABULARY_LEVELS.map((level) => <option key={level} value={level}>{vocabularyLevelLabels[level]}</option>)}

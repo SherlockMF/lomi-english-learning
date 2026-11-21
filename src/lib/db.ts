@@ -176,6 +176,8 @@ export function normalizeUserSettings(raw: Partial<UserSettings> | UserSettings)
     newItemsPerDay: boundedInteger(raw.newItemsPerDay, 0, 100, DEFAULT_SETTINGS.newItemsPerDay),
     contentMix: normalizeContentMix(raw.contentMix),
     activeCategories: normalizeActiveCategories(raw.activeCategories),
+    ...(raw.expansionCategories === undefined ? {} : { expansionCategories: normalizeCategories(raw.expansionCategories) }),
+    categoryPriorityChangedAt: typeof raw.categoryPriorityChangedAt === 'string' && Number.isFinite(Date.parse(raw.categoryPriorityChangedAt)) ? raw.categoryPriorityChangedAt : undefined,
     speechAccent: normalizeSpeechAccent(raw.speechAccent),
     vocabularyLevel: isVocabularyLevel(raw.vocabularyLevel) ? raw.vocabularyLevel : 'B1',
     adaptiveDifficulty: typeof raw.adaptiveDifficulty === 'boolean' ? raw.adaptiveDifficulty : true,
@@ -203,16 +205,19 @@ export function normalizeDictionaryQuery(query: string): string {
   return query.trim().toLocaleLowerCase('en-US')
 }
 
-function normalizeActiveCategories(raw: unknown): SystemListSlug[] {
-  if (!Array.isArray(raw)) return [...DEFAULT_SETTINGS.activeCategories]
+function normalizeCategories(raw: unknown): SystemListSlug[] {
+  if (!Array.isArray(raw)) return []
   const known = new Set<string>(SYSTEM_LIST_ORDER)
   const unique = new Set<string>()
   for (const entry of raw) {
     if (typeof entry === 'string' && known.has(entry)) unique.add(entry)
   }
-  return unique.size ? [...unique].sort((left, right) => (
-    SYSTEM_LIST_ORDER.indexOf(left as SystemListSlug) - SYSTEM_LIST_ORDER.indexOf(right as SystemListSlug)
-  )) as SystemListSlug[] : [...DEFAULT_SETTINGS.activeCategories]
+  return [...unique] as SystemListSlug[]
+}
+
+function normalizeActiveCategories(raw: unknown): SystemListSlug[] {
+  const categories = normalizeCategories(raw)
+  return categories.length ? categories : [...DEFAULT_SETTINGS.activeCategories]
 }
 
 function normalizeContentMix(raw: Record<string, number> | undefined): Record<SystemListSlug, number> {
@@ -505,7 +510,8 @@ export async function initializeDatabase(
   settings: UserSettings = createDefaultSettings(),
   seedLists: VocabularyList[] = ALL_VOCABULARY_LISTS,
 ): Promise<InitializeDatabaseResult> {
-  const database = await getDatabase()
+  // Bundled content is reconstructed on each device from the release and account settings.
+  const database = await getRawDatabase()
   const transaction = database.transaction(
     ['words', 'vocabularyLists', 'wordListItems', 'tracks', 'settings', 'cloudMeta'],
     'readwrite',
@@ -618,16 +624,12 @@ export async function initializeDatabase(
     membershipStore.put(membership)
   }
 
-  let seeded = false
-  if (isEmptyLibrary) {
-    const tracksToWrite = seedTracks ?? createInitialTracks(seedWords)
+  const tracksToWrite = isEmptyLibrary ? seedTracks ?? createInitialTracks(seedWords) : createInitialTracks(wordsToAdd)
+  if (tracksToWrite.length > 0) {
+    // A cloud pull may restore a review track before its shared word is installed.
+    const existingTrackIds = new Set(await trackStore.getAllKeys())
     for (const track of tracksToWrite) {
-      trackStore.put(track)
-    }
-    seeded = true
-  } else if (wordsToAdd.length > 0) {
-    for (const track of createInitialTracks(wordsToAdd)) {
-      trackStore.put(track)
+      if (!existingTrackIds.has(track.id)) trackStore.put(track)
     }
   }
 
@@ -650,7 +652,7 @@ export async function initializeDatabase(
     && wordsToAdd.length === 0
     && membershipsToAdd.length === 0
 
-  return { seeded, skipped }
+  return { seeded: isEmptyLibrary, skipped }
 }
 
 function lexicalIdentity(word: Pick<Word, 'expression' | 'senseKey'>): string {

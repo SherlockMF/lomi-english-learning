@@ -17,6 +17,7 @@ import { createVoiceHistoryTransport } from '../lib/voice/historyTransport'
 import { CloudRegistration } from './CloudRegistration'
 
 export const CLOUD_APPLIED = 'recall-cloud-data-applied'
+const VOCABULARY_ROLLOUT = Date.parse('2026-11-21T16:17:00Z')
 
 export function CloudApp() {
   const [client] = useState(getCloudClient)
@@ -135,7 +136,9 @@ export function CloudApp() {
       <button type="button" className="secondary-button" onClick={() => window.location.reload()}>重试</button><button type="button" className="secondary-button" onClick={() => void signOut()}>退出登录</button>
     </div>}
   </div>
-  return <AccountWorkspace key={readyAccount} accountError={error} initialTab={browsingTab} email={session.user.email ?? ''} client={client} membership={membership} onSignOut={() => void signOut()} />
+  const createdAt = Date.parse(session.user.created_at)
+  const preserveVocabulary = !Number.isFinite(createdAt) || createdAt < VOCABULARY_ROLLOUT
+  return <AccountWorkspace key={readyAccount} accountError={error} initialTab={browsingTab} email={session.user.email ?? ''} client={client} membership={membership} preserveVocabulary={preserveVocabulary} onSignOut={() => void signOut()} />
 }
 
 function AuthForm({ client, error: initialError, verifiedEmail, onRegister, onClose, onSignedIn }: {
@@ -214,7 +217,7 @@ function PasswordSetup({ client, recoveryToken, onComplete }: { client: ReturnTy
   </form></main>
 }
 
-function AccountWorkspace({ client, email, onSignOut, initialTab, accountError, membership }: { client: ReturnType<typeof getCloudClient>; email: string; onSignOut: () => void; initialTab: AppTab; accountError: string; membership: CloudMembership | null }) {
+function AccountWorkspace({ client, email, onSignOut, initialTab, accountError, membership, preserveVocabulary }: { client: ReturnType<typeof getCloudClient>; email: string; onSignOut: () => void; initialTab: AppTab; accountError: string; membership: CloudMembership | null; preserveVocabulary: boolean }) {
   const [appReady, setAppReady] = useState(false)
   const [cacheReady, setCacheReady] = useState(false)
   const [state, setState] = useState<CloudSyncState>({ phase: 'waiting', message: '正在打开账号缓存…', conflicts: [] })
@@ -286,7 +289,7 @@ function AccountWorkspace({ client, email, onSignOut, initialTab, accountError, 
     </section>}
     {!cacheReady && appReady && <p className="cloud-cache-wait" role="status">正在恢复账号数据…</p>}
     <MembershipBalanceProvider membership={membership} load={refreshMembership}>
-      <div inert={appReady && !cacheReady ? true : undefined}><App initialTab={initialTab} onReady={onReady} onBusyChange={onBusyChange} dataReady={cacheReady && state.phase === 'synced'} accountMembership={membership} account={{ email, error: accountError, syncMessage: `${state.message} · ${voiceState.message}`, onSignOut, signOutDisabled: state.phase === 'syncing', onResetPassword: async () => {
+      <div inert={appReady && !cacheReady ? true : undefined}><App initialTab={initialTab} onReady={onReady} onBusyChange={onBusyChange} dataReady={cacheReady && state.phase === 'synced'} preserveVocabulary={preserveVocabulary} accountMembership={membership} account={{ email, error: accountError, syncMessage: `${state.message} · ${voiceState.message}`, onSignOut, signOutDisabled: state.phase === 'syncing', onResetPassword: async () => {
         const result = await requestCloudPasswordReset(client, email, `${window.location.origin}/auth/update-password`)
         if (result.error) throw result.error
       } }} /></div>

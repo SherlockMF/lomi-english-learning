@@ -16,11 +16,16 @@ it('does not promise a three-expression lesson when a returning learner reopens 
 it('saves first-lesson choices and supports keeping the dialog open on failure', async () => {
   const complete = vi.fn().mockRejectedValueOnce(new Error('offline')).mockResolvedValueOnce(undefined)
   render(<OnboardingDialog settings={DEFAULT_SETTINGS} onComplete={complete} onClose={vi.fn()} />)
-  fireEvent.change(screen.getByLabelText('最想用英语做什么'), { target: { value: 'business' } })
+  expect(screen.getByRole('button', { name: '开始第一课' })).toBeDisabled()
+  fireEvent.click(screen.getByRole('checkbox', { name: '商业英语' }))
+  fireEvent.click(screen.getByRole('checkbox', { name: '校园学术' }))
+  fireEvent.click(screen.getByRole('button', { name: '上移校园学术' }))
   fireEvent.click(screen.getByRole('button', { name: '开始第一课' }))
   expect(await screen.findByRole('alert')).toHaveTextContent('设置未保存成功')
   fireEvent.click(screen.getByRole('button', { name: '保存，先逛逛' }))
-  await waitFor(() => expect(complete).toHaveBeenLastCalledWith(expect.objectContaining({ learningGoal: 'business', onboardingCompletedAt: expect.any(String) }), false))
+  await waitFor(() => expect(complete).toHaveBeenLastCalledWith(expect.objectContaining({
+    learningGoal: 'campus', activeCategories: ['campus', 'business'], onboardingCompletedAt: expect.any(String),
+  }), false))
 })
 
 it('does not save a correction explanation as the Chinese translation', async () => {

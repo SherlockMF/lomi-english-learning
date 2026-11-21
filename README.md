@@ -4,9 +4,9 @@
 
 **Lomi English（洛米英语）**是一款本地优先的英语学习 Web 应用，将 **AI 英语口语陪练、单词与表达学习、主动回忆（Active Recall）和 FSRS 间隔重复（Spaced Repetition）**结合起来。不靠选择题，用「想起再说出」巩固表达，面向日常生活、马来西亚大学生活、商务英语及金融 / 会计场景。
 
-本地模式将学习进度保存在当前浏览器（IndexedDB）；邀请制云模式通过 Supabase 同步账号学习数据和口语历史。DeepSeek 提供可选的表达反馈与语义判分，Qwen 提供实时语音对话和语音消息练习。在线站点可先浏览，云端学习与 AI 服务需受邀账号；套餐页仅为预览，尚未开放购买。
+本地模式将学习进度保存在当前浏览器（IndexedDB）。线上通过 Neon 同步账号学习数据和口语历史。DeepSeek 提供可选的表达反馈与语义判分，Qwen 提供实时语音对话和语音消息练习。访客可浏览词库，注册并验证邮箱后即可学习；套餐页暂未开放购买。
 
-**English:** A local-first English learning app with AI speaking practice, vocabulary study, active recall, and FSRS spaced repetition. Built with React, TypeScript, DeepSeek, Qwen, and optional Supabase sync.
+**English:** A local-first English learning app with AI speaking practice, vocabulary study, active recall, and FSRS spaced repetition. Built with React, TypeScript, DeepSeek, Qwen, and Neon cloud sync.
 
 | | |
 | --- | --- |
@@ -14,7 +14,7 @@
 | **仓库** | [`SherlockMF/lomi-english-learning`](https://github.com/SherlockMF/lomi-english-learning) |
 | **主分支** | `master`（统一维护分支） |
 | **npm 包名** | `lomi-english-learning`（私有应用包，不发布到 npm） |
-| **版本** | 0.1.0（词库 **V5.3**，内容修订 **5.3.2**） |
+| **版本** | 0.1.0（词库 **V6**，内容修订 **6.0.0**） |
 | **技术栈** | React 19 · Vite · TypeScript · IndexedDB (`idb`) · FSRS (`ts-fsrs`) |
 
 ## 功能概览
@@ -28,7 +28,7 @@
 - **每日共享预算**：默认 15 分钟、最多 5 个新表达；时长可设 5—120 分钟，新表达可设 0—100 个（0 表示只复习）。回忆与应用共用时间，可分多次完成
 - **FSRS 复习**：默认按约 90% 目标保持率安排间隔；这是排程目标，不代表已达到的掌握程度
 - **可解释的学习证据**：理解意思、主动表达、延迟保持与场景应用分别记录；词条浮窗显示学习摘要，展开「学习依据与最近记录」可查看缺失条件和最近五条证据
-- **内置词库**：**7503** 个义项（手写 240 + bundled 7263；包含已复核保留的不同义项）。seedContentRevision 变更时按 Word.id 刷新未编辑的种子正文；个人编辑、暂停、优先级、已会与难度覆盖及 FSRS track 保留。旧记录没有正文编辑标记时，时间戳显示曾修改的内容会保守保留。
+- **内置词库**：**37,462** 个义项，含原有 7,503 个和 V6 新增 29,959 个，覆盖 26 个学习方向。首次学习可勾选并排序，随时可在「词库 → 管理学习词库」调整。旧账号下次打开会看到更新提示，保存选项后才加入所选方向的新内容，原有词库、个人编辑及学习记录保留。[分类与内容说明](docs/expansion-v6-summary.md)
 - **查词与发音**：Free Dictionary API + 有道词典代理；UK / US 音频优先，缺失时回退 Web Speech
 - **多义项词库**：同一个英文表达归并为小卡片，桌面三列，左侧英文、右侧最多三个中文义项；中文可显示两行，窄卡片将词义移到英文下方，避免英文区域过窄导致断词。点击英文或词义打开独立浮窗，切换全部义项时同步定义、例句、学习情况和操作对象。训练、优先学习、已会、编辑及「补全词义」均在浮窗操作，补全后卡片不会因全部义项撑长。添加页展示来源返回的全部词义，可勾选多个义项训练；未勾选的新增义项保存为暂停状态。补全支持按需查词，项目另附全库查询生成的增量义项包，不承诺穷尽所有用法。缺中文的义项仅供查阅，编辑补充后可加入训练。旧内容、ID 和进度保留，重复补全不重置学习记录。
 - **可选 AI**：设置页输入 DeepSeek API Key，点击「保存 DeepSeek Key」立即保存，无需保存其他设置；标题旁显示未配置、待保存或已保存，存储失败时显示需检查。支持语义判分、分层提示、词条补全、usage 题懒生成；开放造句需主动点击 AI 验证，每次提交最多请求一次。未请求或失败保留“待验证”（Key 仅存 `localStorage`，不进入备份；已保存不代表真实调用已验证）
@@ -48,13 +48,13 @@ npm ci
 npm run dev
 ```
 
-浏览器打开 Vite 输出的本地地址即可。首次启动会把缺失的种子词写入 IndexedDB。基础词汇学习和 FSRS 复习无需 AI Key；口语陪练、AI 反馈需要另行配置对应服务，调用费用由服务商收取。本地模式不填写 Supabase 构建变量。
+浏览器打开 Vite 输出的本地地址即可。首次启动会把缺失的种子词写入 IndexedDB。基础词汇学习和 FSRS 复习无需 AI Key；口语陪练、AI 反馈需要另行配置对应服务，调用费用由服务商收取。本地模式无需配置云端构建变量。
 
 仓库原名为 `recall-english`。已有克隆无需重新下载，在仓库目录执行 `git remote set-url origin https://github.com/SherlockMF/lomi-english-learning.git`，然后 `git fetch origin --prune`。GitHub 统一使用 `master`，原功能分支历史已合入。内部数据库标识、备份文件名及 Render 服务名沿用旧名，避免影响已有数据和部署。
 
 ### 部署到 english.lomivex.top
 
-邀请制云版本使用 Render Node.js 服务和 Supabase，支持邮箱登录、账号数据同步，以及管理员托管的 AI / 口语服务。当前 Blueprint 使用免费实例试运行，空闲后会休眠。按[部署手册](docs/deployment.md)配置数据库、邀请邮件、环境变量和域名；仓库包含 `render.yaml`，生产入口为 `npm start`。本地版不填写 Supabase 构建变量即可保持原用法。真实账号后台和 DNS 配置需由管理员执行。
+线上使用 Render Node.js 服务与 Neon，支持邮箱注册、账号数据同步，以及管理员托管的 AI 和口语服务。当前 Blueprint 使用空闲时休眠的免费实例。数据库、邮箱、环境变量和域名配置见部署手册，生产入口为 `npm start`。[部署手册](docs/deployment.md)
 
 ```bash
 npm test                    # 单元 / 组件测试
@@ -63,7 +63,7 @@ npm run lint                # oxlint 静态检查
 npm run build               # 生产构建
 npm run share:check         # 构建、生成 ZIP、解压并启动分享包进行冒烟检查
 npm run share:export        # 生成完整应用分享包，默认放在 Downloads
-npm run vocabulary:export  # 导出当前 V5.3 种子及 trusted 词包
+npm run vocabulary:export  # 导出当前种子及 trusted 词包
 npm run seed:pack           # 从 trusted_v5_2 重建 public/data/bundledSeed*.json
 npm run seed:quality        # 词库硬闸
 npm run seed:validate-sense # 义项一致性（strict）
@@ -136,9 +136,9 @@ DASHSCOPE_WORKSPACE_ID=<your-workspace-id>
 
 联调限制：取消回复遇到已结束响应时，仅对可明确识别的取消竞态保留连接；未识别的服务错误会结束对话。真实取消错误的消息格式、音频缓存和打断效果需要使用本机凭证验证，模拟测试不证明通话质量。
 
-### 词库维护（V5.3）
+### 词库维护（V6）
 
-生产 SoT：`data/vocabulary-packs/trusted_v5_2_vocabulary_pack.json` + `src/data/seedVocabulary.ts`。不要手改 `public/data/bundledSeed*.json`。
+基础源数据在 `data/vocabulary-packs/trusted_v5_2_vocabulary_pack.json` 和 `src/data/seedVocabulary.ts`。V6 内容源在 `data/vocabulary-packs/expansion-v6/chunks/`。生成发布资产时依次运行 `npm run seed:pack`、`npm run expansion:validate`、`npm run expansion:build` 和 `npm run expansion:bundled`。
 
 历史批次脚本（`seed:fix-p0` … `seed:fix-b8`、`seed:upgrade*` 等）已归档至 `scripts/archive/`，仅作追溯；日常维护只用 `seed:pack` / `seed:quality` / `seed:validate-sense`。总报告：`data/vocabulary-packs/v53-wrapup-report.md`。
 
@@ -191,7 +191,7 @@ scripts/                 # 词包构建、质量闸、macOS 快捷方式等
 本仓库尚未提供独立的开源 LICENSE；公开可见不代表已授予任意再分发或商业使用许可。第三方依赖与词表遵循各自许可，词级数据来源见 [词级说明](data/word-levels/README.md)。
 
 - **本地模式**：学习数据保存在浏览器，DeepSeek Key 按浏览器地址保存，口语凭证由本机服务保存。学习备份不含 Key，也不包含口语历史及录音。
-- **云端模式**：账号学习数据、口语文字与反馈同步到 Supabase；语音消息录音保存在私有 Storage，换设备时按需下载。AI 服务凭证由服务端管理。
+- **云端模式**：账号学习数据、口语文字与反馈同步到 Neon。语音消息录音保存在 Neon 私有 Object Storage，换设备时按需下载。AI 服务凭证由服务端管理。
 - **第三方服务**：查词、AI 判分和口语练习会向对应词典或 AI 服务商发送必要的查询、文字或音频。使用前应了解其条款与费用。详细数据与部署边界见 [部署手册](docs/deployment.md)。
 
 ## 词汇难度与已会
@@ -200,7 +200,7 @@ scripts/                 # 词包构建、质量闸、macOS 快捷方式等
 
 学习设置提供 A1–C2 起始词级，默认 B1，可开关自动调整。词库显示词级、筛选难度和已会状态；编辑词条可手动修正等级。词级来自 [CEFR-J / Octanove](https://github.com/openlanguageprofiles/olp-en-cefrj)，未匹配的表达统一估算 B2 并明确标注。来源、许可和固定数据版本见 [data/word-levels/README.md](data/word-levels/README.md)。词级参考不代表用户水平或每个专业义项的难度，也不同于 FSRS 的记忆 difficulty 参数。
 
-每日新词数量保持固定，按约 80% 优先学习、20% 其他词库分配。优先词保持列表顺序，不受词级设置影响。普通词先选择目标等级，同级不足再选相邻等级，并在同等难度内按日常、商业、金融、会计 4:3:2:1 的长期累计比例选取，不限定天数或每组词数。分类计数根据已保存的首次学习记录跨天累计，每个普通词只计一次，复习、重试和优先词不占分类名额；有历史优先状态时不因后来改变列表归属重算身份，旧记录缺字段时用当前列表归属。各类词量和难度允许时，累计选词趋向日常 40%、商业 30%、金融 20%、会计 10%；已有历史偏差会在后续选词中逐步平衡，缺词时由可用类别补位。该权重替代旧备份中的 contentMix 排程设置；旧字段仍可导入导出。普通新词每组最多三个，先完成这一组双向练习再进入下一组，此训练分组不影响跨天累计比例。
+每日新词按设置数量安排。优先学习词有充足库存时约占 80%。其余从所选词库按优先级分配，例如选了三个方向，长期占比约为 3:2:1。每个方向优先选接近当前水平的词，缺词时由其他已选方向补位。按首次学习记录跨天累计，调整排序后重新计数。取消勾选后停止安排该方向的新词，已学词继续复习。普通新词每组最多三个。
 
 自动调整只使用保存的普通新词首次练习证据：一个词双向首轮、无提示、未覆写、经规则或 AI 验证准确答对，理解方向不超过 12 秒、表达方向不超过 15 秒，计一次轻松；连续三个轻松词升一级。首轮明确答错、想不起来，或依赖二级以上提示才答对，计一次困难；连续两个困难词降一级。每词最多计算一次，重试、旧词复习、未验证、优先词不参与。上下限 A1/C2。阈值是产品规则，未经过水平测评校准。
 

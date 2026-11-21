@@ -175,10 +175,12 @@ export interface UserSettings {
   coreMinutes: number
   extensionMinutes: number
   desiredRetention: number
-  /** System categories whose words may enter the ordinary new-item rotation. */
+  /** System categories in descending priority for ordinary new words. */
   activeCategories: SystemListSlug[]
+  expansionCategories?: SystemListSlug[]
+  categoryPriorityChangedAt?: string
   newItemsPerDay: number
-  /** Legacy backup field; new-word scheduling uses fixed daily/business/finance/accounting weights. */
+  /** Legacy backup field; new-word scheduling derives weights from activeCategories. */
   contentMix: Record<SystemListSlug, number>
   /** Preferred UK/US accent for study playback. */
   speechAccent: SpeechAccent

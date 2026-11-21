@@ -1,7 +1,7 @@
 import { act, cleanup, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, expect, it, vi } from 'vitest'
-import type { VocabularyItem } from '../domain/types'
+import { DEFAULT_ACTIVE_CATEGORIES, type VocabularyItem } from '../domain/types'
 import type { LearningEvidence } from '../lib/learningEvidence'
 import { LibraryView } from './LibraryView'
 
@@ -14,7 +14,8 @@ const sense: VocabularyItem = {
   listSlugs: ['finance'], category: 'finance', createdAt: '2026-10-08T00:00:00.000Z', updatedAt: '2026-10-08T00:00:00.000Z',
 }
 function props(items: VocabularyItem[]) {
-  return { items, evidenceByItemId: new Map(), onToggleStatus: vi.fn().mockResolvedValue(undefined),
+  return { items, activeCategories: DEFAULT_ACTIVE_CATEGORIES, onSaveStudyCategories: vi.fn().mockResolvedValue(undefined),
+    evidenceByItemId: new Map(), onToggleStatus: vi.fn().mockResolvedValue(undefined),
     onToggleKnown: vi.fn().mockResolvedValue(undefined), onUpdate: vi.fn(),
     onAddToMyVocabulary: vi.fn().mockResolvedValue({ ok: true, message: '已加入优先学习' }),
     onRemoveFromMyVocabulary: vi.fn().mockResolvedValue({ ok: true, message: '已移除优先学习' }) }

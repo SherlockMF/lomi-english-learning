@@ -486,20 +486,24 @@ export function validateSettings(value: unknown, path: string, requireDailyMinut
     'onboardingCompletedAt',
     'learningGoal',
     'activeCategories',
+    'expansionCategories',
+    'categoryPriorityChangedAt',
   ])
   literalAt(record.id, `${path}.id`, ['primary'] as const)
   if (record.vocabularyLevel !== undefined) literalAt(record.vocabularyLevel, `${path}.vocabularyLevel`, VOCABULARY_LEVELS)
   if (record.adaptiveDifficulty !== undefined) booleanAt(record.adaptiveDifficulty, `${path}.adaptiveDifficulty`)
   optionalDateAt(record.difficultyResetAt, `${path}.difficultyResetAt`)
   optionalDateAt(record.onboardingCompletedAt, `${path}.onboardingCompletedAt`)
+  optionalDateAt(record.categoryPriorityChangedAt, `${path}.categoryPriorityChangedAt`)
   if (record.learningGoal !== undefined) literalAt(record.learningGoal, `${path}.learningGoal`, SYSTEM_LIST_ORDER)
-  if (record.activeCategories !== undefined) {
-    const activeCategories = arrayAt(record.activeCategories, `${path}.activeCategories`, (entry, entryPath) => {
+  for (const key of ['activeCategories', 'expansionCategories'] as const) {
+    if (record[key] === undefined) continue
+    const categories = arrayAt(record[key], `${path}.${key}`, (entry, entryPath) => {
       literalAt(entry, entryPath, SYSTEM_LIST_ORDER)
       return entry as SystemListSlug
     })
-    if (new Set(activeCategories).size !== activeCategories.length) {
-      fail(`${path}.activeCategories`, '激活分类不能重复')
+    if (new Set(categories).size !== categories.length) {
+      fail(`${path}.${key}`, '词库分类不能重复')
     }
   }
   if (requireDailyMinutes || record.dailyMinutes !== undefined) {

@@ -10,9 +10,9 @@ vi.mock('../lib/cloud/client', () => ({ getCloudClient: () => ({
   auth: { getSession: async () => ({ data: { session: fake.session }, error: null }), onAuthStateChange: () => ({ data: { subscription: { unsubscribe: vi.fn() } } }), signInWithPassword: fake.signIn, signOut: fake.signOut, resetPasswordForEmail: vi.fn(), ...(fake.neon ? { getBetterAuthInstance: vi.fn() } : {}) },
   from: () => ({ select: () => ({ eq: () => ({ maybeSingle: async () => ({ data: { active: fake.active }, error: null }) }) }) }),
 }), beginCloudRegistration: fake.register, verifyCloudRegistration: fake.verify, resendCloudRegistrationCode: vi.fn(), MIN_CLOUD_PASSWORD_LENGTH: 8 }))
-vi.mock('../App', () => ({ default: ({ onRequestLogin }: { onRequestLogin?: () => void }) => onRequestLogin
+vi.mock('../App', () => ({ default: ({ onRequestLogin, preserveVocabulary }: { onRequestLogin?: () => void; preserveVocabulary?: boolean }) => onRequestLogin
   ? <div>访客浏览页面<button onClick={onRequestLogin}>开始今天的训练</button></div>
-  : <div>受保护的学习页面</div> }))
+  : <div>受保护的学习页面{preserveVocabulary && <span>保留现有词库</span>}</div> }))
 vi.mock('../lib/cloud/sync', () => ({ createCloudSync: () => ({ start: vi.fn(), stop: vi.fn(), sync: vi.fn(), resolve: vi.fn() }) }))
 import { CloudApp } from './CloudApp'
 import { selectDatabaseAccount } from '../lib/db'
@@ -80,6 +80,17 @@ it('shows a failed sign-out without hiding the account workspace', async () => {
   fireEvent.click(screen.getByRole('button', { name: '退出登录' }))
   expect(await screen.findByRole('alert')).toHaveTextContent('退出失败')
   expect(screen.getByText('受保护的学习页面')).toBeInTheDocument()
+})
+
+it.each([
+  ['2026-11-19T09:39:28Z', true],
+  ['2026-11-22T08:00:00Z', false],
+  [undefined, true],
+] as const)('selects the vocabulary release path for account creation time %s', async (createdAt, preserve) => {
+  fake.session = { user: { id: '22222222-2222-4222-8222-222222222222', created_at: createdAt } } as Session
+  render(<CloudApp />)
+  await screen.findByText('受保护的学习页面')
+  expect(Boolean(screen.queryByText('保留现有词库'))).toBe(preserve)
 })
 
 it('lets Neon users register with an eight-character password and verify by email before signing in', async () => {

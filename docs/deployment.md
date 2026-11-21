@@ -1,6 +1,12 @@
 # english.lomivex.top 部署手册
 
-本文供首次接手的管理员将邀请制 Lomi English（洛米英语） 部署到 Render + Supabase。按顺序完成后台配置、发布和两账号验收后，再邀请正式用户。当前仓库准备工作不代表网站已经发布；真实项目、SMTP、供应商权限和 DNS 仍需后台验证。本地 Docker daemon 不可用，数据库自动测试使用 PGlite，不能替代真实 Supabase 集成验收。
+正式站使用 Render 与 Neon，支持邮箱注册验证和学习数据同步。下文保留 Supabase 的历史部署步骤，用于维护仍使用该方案的独立环境。
+
+## V6 生产更新
+
+1. 使用 `npm run cloud:seed -- --expansion-v6 --dry-run` 确认新增 29,959 个 V6 ID。用受控的 Neon 管理连接执行 `npm run cloud:seed -- --expansion-v6`。命令只追加 V6 共享词条，可安全重试。
+2. 核对 `public.words` 中有 37,462 条共享词，其中 7,503 条为原目录，29,959 条为 V6。比对原目录和账号学习表的行数或摘要。账号、学习记录和数据库结构沿用原生产数据。
+3. 在 Render 对 `master` 手动发布已验证的提交。检查 `/healthz`、新词库资产和访客页面。发布前已有账号下次打开时显示 V6 提示，保存学习方向后按需补充词条。仍在复核的例句另行发版。
 
 ## 切换到 Neon
 

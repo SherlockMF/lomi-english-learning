@@ -35,11 +35,11 @@ export async function seedCloudWords({ url, secret, words, fetcher = globalThis.
   return uploadSharedWords(client, words)
 }
 
-export function seedNeonWords({ query, words }) {
+export function seedNeonWords({ query, words, insertOnly = false }) {
   const client = { from: () => ({ upsert: async rows => {
     await query(`insert into public.words(id, data)
       select id, data from jsonb_to_recordset($1::jsonb) as word(id text, data jsonb)
-      on conflict (id) do update set data = excluded.data`, [JSON.stringify(rows)])
+      on conflict (id) ${insertOnly ? 'do nothing' : 'do update set data = excluded.data'}`, [JSON.stringify(rows)])
     return { error: false }
   } }) }
   return uploadSharedWords(client, words)
@@ -47,7 +47,10 @@ export function seedNeonWords({ query, words }) {
 
 async function main() {
   const root = fileURLToPath(new URL('../', import.meta.url))
-  const { words } = await loadSeedPackFromDisk(root)
+  const seed = await loadSeedPackFromDisk(root)
+  const insertOnly = process.argv.includes('--expansion-v6')
+  const words = insertOnly ? seed.words.filter(word => word.id.startsWith('v6-')) : seed.words
+  if (insertOnly && !words.length) throw new Error('Missing V6 expansion words')
   if (process.argv.includes('--dry-run')) {
     if (new Set(words.map((word) => word.id)).size !== words.length) throw new Error('Duplicate shared word ids')
     console.log(`Shared words: ${words.length}`)
@@ -58,10 +61,11 @@ async function main() {
     const connection = new URL(neonUrl)
     if (!['postgres:', 'postgresql:'].includes(connection.protocol)) throw new Error('Invalid Neon database URL')
     connection.searchParams.set('sslmode', 'verify-full')
-    const count = await seedNeonWords({ query: neon(connection.href).query, words })
+    const count = await seedNeonWords({ query: neon(connection.href).query, words, insertOnly })
     console.log(`Shared words: ${count}`)
     return
   }
+  if (insertOnly) throw new Error('The V6 production import requires Neon')
   const url = process.env.SUPABASE_URL ?? process.env.VITE_SUPABASE_URL
   const secret = process.env.SUPABASE_SECRET_KEY
   if (!url || !secret) throw new Error('Missing Supabase administrator environment configuration')

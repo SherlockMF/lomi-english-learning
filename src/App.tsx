@@ -5,8 +5,9 @@ import type { EvaluationResult, RateDetail } from './components/StudySession'
 import { TodayView } from './components/TodayView'
 import type { AccountControls } from './components/AccountDataSection'
 import { saveVoiceExpression, type VoiceExpressionDraft } from './lib/voice/review'
-import { buildFirstLessonPlan } from './lib/onboarding'
-import { handcraftedSeedMemberships, handcraftedSeedWords, loadSeedPack } from './data/seedVocabulary'
+import { applyStudyCategoryOrder, buildFirstLessonPlan } from './lib/onboarding'
+import { handcraftedSeedMemberships, handcraftedSeedWords, loadSeedPack, selectAccountSeed } from './data/seedVocabulary'
+import { PRE_EXPANSION_SEED_REVISION, SEED_CONTENT_REVISION } from './data/seedContentRevision'
 import { DICTIONARY_CONTENT_REVISION } from './data/dictionaryContentRevision'
 import { loadBundledDictionarySenses } from './data/dictionarySenses'
 import { ALL_VOCABULARY_LISTS, listIdForSlug } from './data/vocabularyLists'
@@ -42,6 +43,7 @@ import {
   addWordToList,
   clearDatabase,
   getLibrarySeedStatus,
+  getRawDatabase,
   getAllReviewAttempts,
   getSettings,
   getUserDataSnapshot,
@@ -89,6 +91,8 @@ interface ActiveSession {
 }
 
 const EXTRA_NEW_ITEM_COUNT = 5
+const PRE_EXPANSION_SETTINGS = { ...DEFAULT_SETTINGS, seedContentRevision: PRE_EXPANSION_SEED_REVISION }
+const VOCABULARY_NOTICE_KEY = `vocabularyUpdateSeen:${SEED_CONTENT_REVISION}`
 
 const AddView = lazy(() => import('./components/AddView').then(module => ({ default: module.AddView })))
 const LibraryView = lazy(() => import('./components/LibraryView').then(module => ({ default: module.LibraryView })))
@@ -105,6 +109,7 @@ interface AppProps {
   account?: AccountControls
   accountMembership?: import('./lib/cloud/client').CloudMembership | null
   dataReady?: boolean
+  preserveVocabulary?: boolean
   onReady?: () => void
   onBusyChange?: (busy: boolean) => void
   onRequestLogin?: () => void
@@ -112,7 +117,7 @@ interface AppProps {
   onTabChange?: (tab: AppTab) => void
 }
 
-function App({ onReady, onBusyChange, onRequestLogin, initialTab = 'today', onTabChange, account, dataReady = true, accountMembership }: AppProps = {}) {
+function App({ onReady, onBusyChange, onRequestLogin, initialTab = 'today', onTabChange, account, dataReady = true, preserveVocabulary = false, accountMembership }: AppProps = {}) {
   const [tab, setTab] = useState<AppTab>(initialTab)
   const preview = Boolean(onRequestLogin)
   const [items, setItems] = useState<VocabularyItem[]>([])
@@ -123,6 +128,8 @@ function App({ onReady, onBusyChange, onRequestLogin, initialTab = 'today', onTa
   const [session, setSession] = useState<ActiveSession | null>(null)
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [onboardingOpen, setOnboardingOpen] = useState(false)
+  const [onboardingDismissed, setOnboardingDismissed] = useState(false)
+  const [showVocabularyNotice, setShowVocabularyNotice] = useState(false)
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState('')
   const [dictionaryWarning, setDictionaryWarning] = useState('')
@@ -130,16 +137,31 @@ function App({ onReady, onBusyChange, onRequestLogin, initialTab = 'today', onTa
   const [sessionError, setSessionError] = useState('')
   const [now, setNow] = useState(() => new Date())
   const enqueueReviewWrite = useRef(createSerialQueue()).current
+  const enqueueSeedWrite = useRef(createSerialQueue()).current
+  const installedExpansion = useRef(new Set<SystemListSlug>())
   const sessionDifficulty = useRef<string>('B1')
+  const hasLearningHistory = useMemo(() => attempts.length > 0 || tracks.some(track => track.reps > 0), [attempts.length, tracks])
+
+  const installExpansion = useCallback((categories: readonly SystemListSlug[]) => enqueueSeedWrite(async () => {
+    const missing = categories.filter(category => !installedExpansion.current.has(category))
+    if (!missing.length) return
+    const seed = selectAccountSeed(await loadSeedPack(), false, missing)
+    await initializeDatabase(seed.words, seed.memberships, undefined, PRE_EXPANSION_SETTINGS)
+    for (const category of missing) installedExpansion.current.add(category)
+  }), [enqueueSeedWrite])
 
   const refreshData = useCallback(async () => {
-    const snapshot = await getUserDataSnapshot()
+    let snapshot = await getUserDataSnapshot()
+    if (preserveVocabulary && snapshot.settings.expansionCategories?.some(category => !installedExpansion.current.has(category))) {
+      await installExpansion(snapshot.settings.expansionCategories)
+      snapshot = await getUserDataSnapshot()
+    }
     setItems(snapshot.vocabulary)
     setTracks(snapshot.tracks)
     setAttempts(snapshot.attempts)
     setTimeEntries(snapshot.timeEntries)
     setSettings(snapshot.settings)
-  }, [])
+  }, [installExpansion, preserveVocabulary])
 
   useEffect(() => {
     if (preview) return
@@ -181,19 +203,19 @@ function App({ onReady, onBusyChange, onRequestLogin, initialTab = 'today', onTa
           setTracks(createInitialTracks(vocabulary))
           return
         }
-        // Returning users skip the ~12 MB seed pack: it is only fetched when
-        // the library is empty or the stored seed revision has changed.
-        const { needsBundledSeed } = await getLibrarySeedStatus()
-        const seed = needsBundledSeed
-          ? await loadSeedPack()
-          : { words: handcraftedSeedWords, memberships: handcraftedSeedMemberships }
-        await initializeDatabase(
-          seed.words,
-          seed.memberships,
-          undefined,
-          DEFAULT_SETTINGS,
-          ALL_VOCABULARY_LISTS,
-        )
+        const seedSettings = preserveVocabulary ? PRE_EXPANSION_SETTINGS : DEFAULT_SETTINGS
+        const { needsBundledSeed } = await getLibrarySeedStatus(seedSettings)
+        if (needsBundledSeed) {
+          const seed = await loadSeedPack()
+          const initial = preserveVocabulary ? selectAccountSeed(seed, true) : seed
+          await initializeDatabase(initial.words, initial.memberships, undefined, seedSettings)
+        } else if (!preserveVocabulary) {
+          await initializeDatabase(handcraftedSeedWords, handcraftedSeedMemberships)
+        }
+        if (preserveVocabulary) {
+          const seen = await (await getRawDatabase()).get('cloudMeta', VOCABULARY_NOTICE_KEY)
+          if (active) setShowVocabularyNotice(!seen)
+        }
         if (!active) return
         if ((await getSettings()).dictionaryContentRevision !== DICTIONARY_CONTENT_REVISION) {
           await syncDictionaryContent()
@@ -208,7 +230,7 @@ function App({ onReady, onBusyChange, onRequestLogin, initialTab = 'today', onTa
     }
     void boot()
     return () => { active = false }
-  }, [refreshData, syncDictionaryContent, preview])
+  }, [refreshData, syncDictionaryContent, preview, preserveVocabulary])
 
   useEffect(() => {
     const interval = window.setInterval(() => setNow(new Date()), 60_000)
@@ -617,8 +639,31 @@ function App({ onReady, onBusyChange, onRequestLogin, initialTab = 'today', onTa
     setSettings(updated)
   }
 
-  async function completeOnboarding(updated: UserSettings, start: boolean) {
+  async function withExpansion(updated: UserSettings) {
+    if (!preserveVocabulary) return updated
+    const current = await getSettings()
+    const expansionCategories = [...new Set([...(current.expansionCategories ?? []), ...updated.activeCategories])]
+    await installExpansion(expansionCategories)
+    return { ...updated, expansionCategories }
+  }
+
+  async function saveStudyCategories(categories: SystemListSlug[]) {
+    const updated = await withExpansion(applyStudyCategoryOrder(await getSettings(), categories))
     await saveSettings(updated)
+    if (preserveVocabulary) await refreshData()
+  }
+
+  async function dismissVocabularyNotice() {
+    setShowVocabularyNotice(false)
+    try {
+      await (await getRawDatabase()).put('cloudMeta', { key: VOCABULARY_NOTICE_KEY, value: true })
+    } catch {
+      showToast('暂时无法记住关闭状态。', 'error')
+    }
+  }
+
+  async function completeOnboarding(updated: UserSettings, start: boolean) {
+    updated = await withExpansion(updated)
     if (start) {
       const snapshot = await getUserDataSnapshot()
       const current = new Date()
@@ -626,10 +671,12 @@ function App({ onReady, onBusyChange, onRequestLogin, initialTab = 'today', onTa
       const plan = (firstLesson ? buildFirstLessonPlan : buildDailyPlan)({ settings: updated,
         items: snapshot.vocabulary, tracks: snapshot.tracks,
         attempts: snapshot.attempts, timeEntries: snapshot.timeEntries, now: current })
+      await saveSettings(updated)
       sessionDifficulty.current = updated.vocabularyLevel ?? 'B1'
       setNow(current)
       setSession({ id: makeId('session'), plan, firstLesson })
-    }
+    } else await saveSettings(updated)
+    if (preserveVocabulary) await refreshData()
     setOnboardingOpen(false)
   }
 
@@ -721,11 +768,27 @@ function App({ onReady, onBusyChange, onRequestLogin, initialTab = 'today', onTa
           <span>{sessionError}</span>
           <button type="button" onClick={() => setSessionError('')}>关闭提示后重试</button>
         </div>}
-        <Suspense fallback={pageFallback}>
-        {tab === 'today' && dataReady && !settings.onboardingCompletedAt && attempts.length === 0 && <section className="panel onboarding-welcome">
-          <div><p className="eyebrow">WELCOME TO LOMI</p><h2>先用一小课，找到你的节奏。</h2><p>选一个常用场景，从最多 3 个表达开始。也可以直接浏览词库。</p></div>
-          <button className="primary-button" type="button" onClick={() => { if (onRequestLogin) onRequestLogin(); else setOnboardingOpen(true) }}>设置我的第一课</button>
+        {showVocabularyNotice && dataReady && !session && <section className="panel onboarding-welcome" aria-labelledby="vocabulary-update-title">
+          <div><h2 id="vocabulary-update-title">词库已更新</h2><p>26 个学习方向新增约 3 万个义项。你的原有词库和学习记录已保留。想学习新增内容，可在词库里勾选方向并保存。</p></div>
+          <div className="backup-actions">
+            <button className="primary-button" type="button" onClick={() => {
+              setTab('library')
+              onTabChange?.('library')
+              window.scrollTo({ top: 0, behavior: 'smooth' })
+              void dismissVocabularyNotice()
+            }}>去词库</button>
+            <button className="secondary-button" type="button" onClick={() => void dismissVocabularyNotice()}>知道了</button>
+          </div>
         </section>}
+        <Suspense fallback={pageFallback}>
+        {tab === 'today' && dataReady && !preserveVocabulary && !settings.onboardingCompletedAt && !hasLearningHistory && !onboardingOpen && !settingsOpen && !session && (
+          preview || onboardingDismissed
+            ? <section className="panel onboarding-welcome">
+                <div><h2>选择你的学习词库</h2><p>选好方向，从最多 3 个表达开始。</p></div>
+                <button className="primary-button" type="button" onClick={() => { if (onRequestLogin) onRequestLogin(); else setOnboardingDismissed(false) }}>设置我的第一课</button>
+              </section>
+            : <OnboardingDialog embedded settings={settings} onComplete={completeOnboarding} onClose={() => setOnboardingDismissed(true)} />
+        )}
         {tab === 'today' && (
           <TodayView
             plan={dailyPlan}
@@ -753,6 +816,9 @@ function App({ onReady, onBusyChange, onRequestLogin, initialTab = 'today', onTa
           <LibraryView
             onRequestLogin={onRequestLogin}
             items={items}
+            activeCategories={settings.activeCategories}
+            expansionOnSave={preserveVocabulary}
+            onSaveStudyCategories={saveStudyCategories}
             onAddToMyVocabulary={addToMyVocabulary}
             onRemoveFromMyVocabulary={removeFromMyVocabulary}
             onToggleStatus={toggleStatus}
@@ -767,7 +833,7 @@ function App({ onReady, onBusyChange, onRequestLogin, initialTab = 'today', onTa
         </Suspense>
       </AppShell>
 
-      {onboardingOpen && <Suspense fallback={settingsFallback}><OnboardingDialog settings={settings} hasLearningHistory={attempts.length > 0 || tracks.some(track => track.reps > 0)} onComplete={completeOnboarding} onClose={() => setOnboardingOpen(false)} /></Suspense>}
+      {onboardingOpen && <Suspense fallback={settingsFallback}><OnboardingDialog settings={settings} hasLearningHistory={hasLearningHistory} onComplete={completeOnboarding} onClose={() => setOnboardingOpen(false)} /></Suspense>}
 
       {session && (
         <Suspense fallback={studyFallback}>

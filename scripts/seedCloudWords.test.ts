@@ -39,3 +39,9 @@ it('upserts the same validated shared words into Neon in bounded parameterized b
   expect(query.mock.calls[0][0]).toContain('on conflict (id)')
   expect(query.mock.calls[0][0]).not.toContain(words[0].id)
 })
+
+it('leaves existing shared rows alone during the expansion import', async () => {
+  const query = vi.fn(async (_statement: string, _parameters: string[]) => [])
+  await seedNeonWords({ query, words: [{ id: 'v6-housing-test' }], insertOnly: true })
+  expect(query.mock.calls[0][0]).toContain('on conflict (id) do nothing')
+})

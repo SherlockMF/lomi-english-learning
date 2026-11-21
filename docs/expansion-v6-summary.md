@@ -29,20 +29,20 @@
 
 ## 应用接入
 
-- `src/domain/types.ts`：SystemListSlug 扩展至 26 个系统分类；DEFAULT_SETTINGS.contentMix 全键；DEFAULT_ACTIVE_CATEGORIES 仍为原 4 类（老用户行为不变）。
+- `src/domain/types.ts`：SystemListSlug 扩展至 26 个系统分类。旧设置缺少分类选择时沿用日常、商业、金融、会计四类。
 - `src/data/vocabularyLists.ts`：27 个词单（26 系统 + my-vocabulary）。
-- `src/lib/scheduler.ts`：ORDINARY_CATEGORY_WEIGHTS 全分类权重；新词只在 activeCategories 内轮转。
-- `src/components/OnboardingDialog.tsx`：onboarding 场景多选（可多选激活分类，主场景决定第一课）。
+- `src/lib/scheduler.ts`：选中方向按顺序使用 N 到 1 的权重，依首次学习记录跨天分配普通新词。
+- `src/components/OnboardingDialog.tsx` 和 `src/components/LibraryView.tsx`：首次选择后即可开始第一课，后续可在词库勾选或调整优先级。停学某方向后，已学词继续安排复习。
 - `public/data/bundledSeedWords.json` + `bundledSeedMemberships.json`：合并后的 bundled 种子（v6 词已生成 cloze/sentence usagePrompts）。
-- `src/data/seedContentRevision.ts`：SEED_CONTENT_REVISION = '6.0.0'（老用户启动时自动补种新词并保留学习进度）。
+- `src/data/seedContentRevision.ts`：新账号使用 6.0.0。发布前已存在的账号沿用 5.3.2，首次打开时显示 V6 更新提示，可在「管理学习词库」保存选项后按方向加入 V6 义项。
 - `data/dictionary-senses/report.json`：新增 29,883 条 not-found unresolved 记录，词典覆盖账目与全量词库平衡（37,415 个唯一表达）。后续可对 v6 表达跑词典义项 enrich 管线。
 
 ## 已知权衡
 
-- bundledSeedWords.json 约 58MB（未压缩）；首次加载与 revision 刷新一次性写入 37k 词条 + ~75k FSRS tracks，耗时数秒。后续可按分类懒加载。
+- bundledSeedWords.json 约 58 MB（未压缩）。新账号首开一次性写入完整种子，旧账号更新时只写入选中方向。这次发布沿用冻结例句，正在复核的改写另行发版。
 - v6 词条 vocabularyLevel 覆盖率约 13%（生成时"有把握才标"）；未标注词条沿用应用内 lexicon/profile 估算（默认 B2）。
 - 词典义项 enrich（wordSenses）尚未覆盖 v6 表达（unresolved 记账已就位）。
 
 ## 测试
 
-`npm test` 全绿（87 文件 / 641 测试）。`npm run lint` 0 错误。
+词条检查使用 `npm run expansion:validate`，发布产物使用 `npm run build`。

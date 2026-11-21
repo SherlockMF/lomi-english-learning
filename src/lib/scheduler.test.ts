@@ -441,6 +441,35 @@ describe('buildDailyPlan', () => {
     expect(new Set(subjectPlan.tasks.map(({ itemId }) => itemId))).toEqual(new Set(['cs-1', 'math-1']))
   })
 
+  it('uses the chosen order for category shares and recognizes secondary list memberships', () => {
+    const selected = ['math', 'cs', 'daily'] as const
+    const items = selected.flatMap(category => Array.from({ length: 8 }, (_, i) =>
+      makeItem(`${category}-${i}`, category, { vocabularyLevel: 'B1' })))
+    const shared = makeItem('shared', 'finance', { listSlugs: ['finance', 'math'], vocabularyLevel: 'B1', priority: 0 })
+    items.push(shared, makeItem('unselected', 'finance', { vocabularyLevel: 'B1', priority: 0 }))
+    const input = { items, tracks: createInitialTracks(items, NOW), attempts: [], timeEntries: [], now: NOW }
+    const scheduled = (activeCategories: SystemListSlug[]) => new Set(buildDailyPlan({ ...input,
+      settings: settings({ newItemsPerDay: 6, activeCategories }) }).tasks.map(task => task.itemId))
+    const ranked = scheduled([...selected])
+    expect(ranked.has('shared')).toBe(true)
+    expect(ranked.has('unselected')).toBe(false)
+    expect([...ranked].filter(id => id.startsWith('math') || id === 'shared')).toHaveLength(3)
+    expect([...ranked].filter(id => id.startsWith('cs'))).toHaveLength(2)
+    expect([...ranked].filter(id => id.startsWith('daily'))).toHaveLength(1)
+    expect([...scheduled(['daily', 'cs', 'math'])].filter(id => id.startsWith('daily'))).toHaveLength(3)
+  })
+
+  it('allocates from the current priorities after changing the category order', () => {
+    const old = Array.from({ length: 10 }, (_, i) => makeItem(`old-math-${i}`, 'math', { status: 'paused' }))
+    const fresh = [makeItem('fresh-math', 'math'), makeItem('fresh-daily')]
+    const items = [...old, ...fresh]
+    const plan = buildDailyPlan({ items, tracks: createInitialTracks(items, NOW), timeEntries: [], now: NOW,
+      settings: settings({ newItemsPerDay: 1, activeCategories: ['math', 'daily'], categoryPriorityChangedAt: NOW.toISOString() }),
+      attempts: old.map((item, i) => makeAttempt(i, item.id, { reviewedAt: new Date(NOW.getTime() - 86_400_000).toISOString() })),
+    })
+    expect(new Set(plan.tasks.map(task => task.itemId))).toEqual(new Set(['fresh-math']))
+  })
+
   it.each([0, 1, 2, 3, 5, 7, 10, 20])('uses rounded 80/20 quotas for %i new words', (total) => {
     const items = [...Array.from({ length: 20 }, (_, i) => makeItem(`p-${i}`, 'finance', { listSlugs: ['finance', 'my-vocabulary'] })),
       ...Array.from({ length: 20 }, (_, i) => makeItem(`o-${i}`))]

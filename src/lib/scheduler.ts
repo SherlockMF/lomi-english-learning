@@ -12,7 +12,7 @@ import type {
 } from '../domain/types'
 import { isExplicitFailure, isValidRecallSuccess } from './learningEvidence'
 import { activeMsForDate, introducedItemIdsToday, localDateKey } from './learningStats'
-import { VOCABULARY_LEVELS, SYSTEM_LIST_ORDER, type SystemListSlug, type VocabularyLevel } from '../domain/types'
+import { DEFAULT_ACTIVE_CATEGORIES, VOCABULARY_LEVELS, type SystemListSlug, type VocabularyLevel } from '../domain/types'
 import { getStudyDifficulty, getVocabularyDifficulty } from './studyDifficulty'
 import { recallContext } from './presentation'
 import { expressionKey } from './text'
@@ -22,10 +22,7 @@ export type SchedulerDate = Date | string | number
 
 export const CORE_TASK_MINUTES = 0.75
 export const USAGE_TASK_MINUTES = 2
-const CATEGORY_ORDER = SYSTEM_LIST_ORDER
 const CORE_TRACK_TYPES: readonly TrackType[] = ['receptive', 'productive']
-
-type MixedCategory = SystemListSlug
 
 interface QueueCandidate {
   task: SessionTask
@@ -180,90 +177,64 @@ function compareItems(left: VocabularyItem, right: VocabularyItem) {
   return createdDifference || left.id.localeCompare(right.id)
 }
 
-const ORDINARY_CATEGORY_WEIGHTS: Record<MixedCategory, number> = {
-  daily: 4,
-  business: 3,
-  finance: 2,
-  accounting: 1,
-  campus: 4,
-  housing: 3,
-  health: 3,
-  money: 3,
-  career: 3,
-  food: 2,
-  travel: 2,
-  government: 2,
-  emergency: 1,
-  shopping: 2,
-  social: 2,
-  entertainment: 1,
-  digital: 2,
-  communication: 2,
-  cs: 1,
-  economics: 1,
-  math: 1,
-  engineering: 1,
-  medicine: 1,
-  law: 1,
-  psychology: 1,
-  marketing: 1,
-}
-
-function categoryCounts(items: VocabularyItem[]) {
-  const counts = Object.fromEntries(CATEGORY_ORDER.map((category) => [category, 0])) as Record<MixedCategory, number>
-  for (const item of items) {
-    if (item.category !== 'my-vocabulary' && item.category in counts) {
-      counts[item.category as MixedCategory] += 1
-    }
-  }
-  return counts
-}
-
 function selectNewItems(
   candidates: VocabularyItem[],
   limit: number,
   priorityLimit: number,
   level: VocabularyLevel,
-  initialCounts: Record<MixedCategory, number> = Object.fromEntries(CATEGORY_ORDER.map((category) => [category, 0])) as Record<MixedCategory, number>,
-  activeCategories: readonly SystemListSlug[] = CATEGORY_ORDER,
+  ordinaryHistory: VocabularyItem[],
+  activeCategories: readonly SystemListSlug[],
 ) {
   if (limit <= 0) return []
-  const isActive = (item: VocabularyItem) => item.listSlugs.includes('my-vocabulary') || activeCategories.includes(item.category as SystemListSlug)
-  const distance = (item: VocabularyItem) => Math.abs(VOCABULARY_LEVELS.indexOf(getVocabularyDifficulty(item).level) - VOCABULARY_LEVELS.indexOf(level))
-  const sorted = candidates.filter((item) => !item.listSlugs.includes('my-vocabulary') && isActive(item))
-    .sort((left, right) => distance(left) - distance(right) || compareItems(left, right))
-  const personal = sorted.filter((item) => item.category === 'my-vocabulary')
-  const selected = candidates.filter((item) => item.listSlugs.includes('my-vocabulary'))
+  const pools = activeCategories.map((slug, index) => ({
+    slug, weight: activeCategories.length - index, count: 0, items: [] as VocabularyItem[],
+  }))
+  const poolFor = (item: VocabularyItem) => pools.find(pool => item.listSlugs.includes(pool.slug))
+  for (const item of ordinaryHistory) {
+    const pool = poolFor(item)
+    if (pool) pool.count += 1
+  }
+
+  const priorityItems: VocabularyItem[] = []
+  let ordinaryCount = 0
+  for (const item of candidates) {
+    if (item.listSlugs.includes('my-vocabulary')) {
+      priorityItems.push(item)
+      continue
+    }
+    const pool = poolFor(item)
+    if (pool) {
+      pool.items.push(item)
+      ordinaryCount += 1
+    }
+  }
+
+  const selectedPriority = priorityItems
     .sort((left, right) => left.expression.localeCompare(right.expression) || left.id.localeCompare(right.id))
-    .slice(0, Math.min(limit, Math.max(priorityLimit, limit - sorted.length)))
-  if (selected.length >= limit) return selected
+    .slice(0, Math.min(limit, Math.max(priorityLimit, limit - ordinaryCount)))
+  const ordinaryLimit = limit - selectedPriority.length
+  if (ordinaryLimit <= 0) return selectedPriority
 
-  const pools = Object.fromEntries(
-    CATEGORY_ORDER.map((category) => [
-      category,
-      sorted.filter((item) => item.category === category),
-    ]),
-  ) as Record<MixedCategory, VocabularyItem[]>
-  const counts = { ...initialCounts }
-  const weights = ORDINARY_CATEGORY_WEIGHTS
+  const levelIndex = VOCABULARY_LEVELS.indexOf(level)
+  const distance = (item: VocabularyItem) => Math.abs(VOCABULARY_LEVELS.indexOf(getVocabularyDifficulty(item).level) - levelIndex)
+  for (const pool of pools) {
+    pool.items.sort((left, right) => distance(left) - distance(right) || compareItems(left, right))
+  }
 
-  while (selected.length < limit) {
-    const nearest = Math.min(...CATEGORY_ORDER.map((category) => pools[category][0] ? distance(pools[category][0]) : Infinity), personal[0] ? distance(personal[0]) : Infinity)
-    if (personal[0] && distance(personal[0]) === nearest) { selected.push(personal.shift()!); continue }
-    const available = CATEGORY_ORDER.filter((category) => pools[category].length > 0 && distance(pools[category][0]) === nearest)
+  const selectedOrdinary: VocabularyItem[] = []
+  while (selectedOrdinary.length < ordinaryLimit) {
+    const available = pools.filter(pool => pool.items.length > 0)
     if (available.length === 0) break
-    const weighted = available.filter((category) => weights[category] > 0)
-    const category = (weighted.length > 0 ? weighted : available).reduce((best, current) => {
-      if (weights[best] <= 0) return current
-      if (weights[current] <= 0) return best
-      const bestScore = (counts[best] + 1) / weights[best]
-      const currentScore = (counts[current] + 1) / weights[current]
+    const pool = available.reduce((best, current) => {
+      const bestScore = (best.count + 1) * current.weight
+      const currentScore = (current.count + 1) * best.weight
+      if (currentScore === bestScore) return current.count < best.count ? current : best
       return currentScore < bestScore ? current : best
     })
-    selected.push(pools[category].shift()!)
-    counts[category] += 1
+    selectedOrdinary.push(pool.items.shift()!)
+    pool.count += 1
   }
-  return selected
+  return [...selectedPriority, ...selectedOrdinary.sort((left, right) => distance(left) - distance(right))]
 }
 
 function compareCandidates(left: QueueCandidate, right: QueueCandidate) {
@@ -441,15 +412,20 @@ export function buildDailyPlan(input: DailyPlanInput): DailyPlan {
   const priorityTarget = Math.round(dailyTarget * 0.8)
   const remainingPriority = Math.max(0, priorityTarget - introducedPriority)
   const difficulty = getStudyDifficulty(settings, items, validAttempts, now)
-  // Carry category counts across days; each ordinary word spends one slot at first introduction.
-  const ordinaryHistory = items.filter((item) => firstAttempts.has(item.id) && !wasPriority(item.id))
+  // Carry the mix across days using only first introductions under the current settings.
+  const priorityChangedAt = dateValue(settings.categoryPriorityChangedAt, Number.NEGATIVE_INFINITY)
+  const ordinaryHistory = items.filter((item) => {
+    const first = firstAttempts.get(item.id)
+    return first && Date.parse(first.reviewedAt) >= priorityChangedAt && !wasPriority(item.id)
+  })
+  const activeCategories = settings.activeCategories ?? DEFAULT_ACTIVE_CATEGORIES
   const newItems = selectNewItems(
     freshItems,
     remainingNewItems,
     remainingPriority,
     difficulty.level,
-    categoryCounts(ordinaryHistory),
-    settings.activeCategories ?? CATEGORY_ORDER,
+    ordinaryHistory,
+    activeCategories,
   )
   const newCandidates = newItemCandidates(newItems, eligibleTracks, 1, 'core', nowValue)
   const selected = [...separateItems(due), ...separateItems(newCandidates)]
@@ -457,8 +433,8 @@ export function buildDailyPlan(input: DailyPlanInput): DailyPlan {
   const tasks = selected.map((candidate) => ({ ...candidate.task, isNew: newIds.has(candidate.task.itemId) }))
   const estimatedMinutes = selected.reduce((sum, candidate) => sum + candidate.minutes, 0)
   const reasons: string[] = []
-  reasons.push(`每日新表达 ${dailyTarget} 个：优先学习约 80%（${priorityTarget} 个），其他词库约 20%（${dailyTarget - priorityTarget} 个）；一方不足由另一方补齐。普通词跨天累计，在已激活的 ${(settings.activeCategories ?? CATEGORY_ORDER).length} 类场景中按权重选取。`)
-  reasons.push(`普通新词优先安排 ${difficulty.level}，同级不足时补充相邻等级。${settings.adaptiveDifficulty === false ? '自动调整已关闭。' : `自动调整已开启：连续轻松 ${difficulty.easyStreak}/3，连续困难 ${difficulty.hardStreak}/2；累计调整 ${difficulty.changes} 次。`}`)
+  reasons.push(`每日新表达 ${dailyTarget} 个。个人优先学习清单约占 80%（${priorityTarget} 个），所选词库约占 20%（${dailyTarget - priorityTarget} 个），一方不足由另一方补齐。所选词库的新词按优先级跨天分配。`)
+  reasons.push(`各词库优先安排 ${difficulty.level}，同级不足时补充相邻等级。${settings.adaptiveDifficulty === false ? '自动调整已关闭。' : `自动调整已开启：连续轻松 ${difficulty.easyStreak}/3，连续困难 ${difficulty.hardStreak}/2；累计调整 ${difficulty.changes} 次。`}`)
   if (remainingNewItems === 0) reasons.push(settings.newItemsPerDay === 0
     ? '今日新表达上限为 0，只安排已学内容。' : '今日新表达额度已用完；其他方向与重试不重复计新表达。')
   if (newItems.length < remainingNewItems) reasons.push('可学的新表达不足，按现有内容安排，不为凑足数量重复出题。')

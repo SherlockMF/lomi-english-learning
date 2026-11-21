@@ -6,11 +6,13 @@ import App from './App'
 import { clearDatabase, closeDatabase, getUserDataSnapshot, initializeDatabase, putSettings, putStudyTimeEntry, writeBatch } from './lib/db'
 import { DEFAULT_SETTINGS, type ReviewAttempt } from './domain/types'
 import { handcraftedSeedWords, loadSeedPack } from './data/seedVocabulary'
+import * as seedVocabulary from './data/seedVocabulary'
 import { LIST_IDS } from './data/vocabularyLists'
 import * as dictionary from './lib/dictionary'
 import * as dictionarySenses from './data/dictionarySenses'
 import { DICTIONARY_CONTENT_REVISION } from './data/dictionaryContentRevision'
 import { gradeAttempt } from './lib/grading'
+import { createInitialTracks } from './lib/scheduler'
 
 describe('App integration', () => {
   beforeEach(async () => {
@@ -23,6 +25,97 @@ describe('App integration', () => {
     await closeDatabase()
     vi.restoreAllMocks()
   })
+
+  it('keeps a returning account on its installed vocabulary until it saves an expansion choice', async () => {
+    const oldSettings = { ...DEFAULT_SETTINGS, seedContentRevision: '5.3.2', dictionaryContentRevision: DICTIONARY_CONTENT_REVISION, activeCategories: ['daily'] as const }
+    const original = handcraftedSeedWords[0]
+    const housing = { ...handcraftedSeedWords[1], id: 'v6-housing-test' }
+    const math = { ...handcraftedSeedWords[2], id: 'v6-math-test' }
+    await initializeDatabase([original], [], undefined, { ...oldSettings, activeCategories: [...oldSettings.activeCategories] })
+    const before = await getUserDataSnapshot()
+    const load = vi.spyOn(seedVocabulary, 'loadSeedPack').mockResolvedValue({
+      words: [original, housing, math],
+      memberships: [{ id: 'housing-test', wordId: housing.id, listId: LIST_IDS.housing, priority: 1, sortOrder: 0 },
+        { id: 'math-test', wordId: math.id, listId: LIST_IDS.math, priority: 1, sortOrder: 0 }],
+    })
+    const user = userEvent.setup()
+    const view = render(<App preserveVocabulary />)
+    const notice = await screen.findByRole('region', { name: '词库已更新' })
+    expect(await getUserDataSnapshot()).toEqual(before)
+    expect(load).not.toHaveBeenCalled()
+    await user.click(within(notice).getByRole('button', { name: '知道了' }))
+    await waitFor(() => expect(notice).not.toBeInTheDocument())
+    view.unmount()
+    render(<App preserveVocabulary initialTab="library" />)
+    await user.click(await screen.findByRole('button', { name: '管理学习词库' }))
+    expect(screen.queryByRole('region', { name: '词库已更新' })).not.toBeInTheDocument()
+    const editor = screen.getByRole('region', { name: '学习词库' })
+    await user.click(within(editor).getByRole('checkbox', { name: '住宿生活' }))
+    await user.click(within(editor).getByRole('button', { name: '保存学习词库' }))
+    await waitFor(async () => {
+      const after = await getUserDataSnapshot()
+      expect(after.words.map(word => word.id)).toEqual([original.id, housing.id])
+      expect(after.settings.activeCategories).toEqual(['daily', 'housing'])
+      expect(after.settings.expansionCategories).toEqual(['daily', 'housing'])
+      expect(after.tracks.filter(track => track.itemId === original.id)).toEqual(before.tracks)
+    })
+  })
+
+  it('restores opted-in expansion words without resetting reviews synced from another device', async () => {
+    const settings = { ...DEFAULT_SETTINGS, seedContentRevision: '5.3.2', dictionaryContentRevision: DICTIONARY_CONTENT_REVISION }
+    const original = handcraftedSeedWords[0]
+    const housing = { ...handcraftedSeedWords[1], id: 'v6-housing-test' }
+    const reviewed = { ...createInitialTracks([housing])[0], reps: 5, stability: 15 }
+    await initializeDatabase([original], [], undefined, settings)
+    vi.spyOn(seedVocabulary, 'loadSeedPack').mockResolvedValue({
+      words: [original, housing],
+      memberships: [{ id: 'housing-test', wordId: housing.id, listId: LIST_IDS.housing, priority: 1, sortOrder: 0 }],
+    })
+    render(<App preserveVocabulary />)
+    await screen.findByRole('heading', { name: '今日学习计划' })
+    await writeBatch({ settings: { ...settings, activeCategories: ['housing'], expansionCategories: ['housing'] }, tracks: [reviewed] })
+    act(() => window.dispatchEvent(new Event('recall-cloud-data-applied')))
+    await waitFor(async () => {
+      const after = await getUserDataSnapshot()
+      expect(after.words.map(word => word.id)).toEqual([original.id, housing.id])
+      expect(after.tracks.find(track => track.id === reviewed.id)).toEqual(reviewed)
+    })
+  })
+
+  it('offers a first-open picker, starts from the chosen list, and persists library changes', async () => {
+    const words = handcraftedSeedWords.slice(0, 3).map((word, index) => ({ ...word,
+      expression: `category-flow-${index}`, lemma: `category-flow-${index}`, vocabularyLevel: 'B1' as const,
+    }))
+    await initializeDatabase(words, words.map((word, i) => ({ id: `category-flow-${i}`, wordId: word.id,
+      listId: [LIST_IDS.daily, LIST_IDS.cs, LIST_IDS.math][i], priority: word.priority, sortOrder: 0,
+    })))
+    const user = userEvent.setup()
+    render(<App />)
+    await user.click(await screen.findByRole('checkbox', { name: '计算机科学' }, { timeout: 10_000 }))
+    await user.click(screen.getByRole('button', { name: '开始第一课' }))
+    expect(await screen.findByRole('heading', { name: 'category-flow-1' }, { timeout: 10_000 })).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: '退出训练' }))
+    await waitFor(() => expect(screen.queryByRole('button', { name: '退出训练' })).not.toBeInTheDocument())
+    const initial = await getUserDataSnapshot()
+    expect(initial.settings.activeCategories).toEqual(['cs'])
+    expect(initial.settings.learningGoal).toBe('cs')
+
+    await user.click(screen.getAllByRole('button', { name: '词库' })[0])
+    await user.click(await screen.findByRole('button', { name: '管理学习词库' }, { timeout: 10_000 }))
+    const editor = screen.getByRole('region', { name: '学习词库' })
+    await user.click(within(editor).getByRole('checkbox', { name: '数学' }))
+    await user.click(within(editor).getByRole('checkbox', { name: '日常生活' }))
+    await user.click(within(editor).getByRole('button', { name: '上移数学' }))
+    await user.click(within(editor).getByRole('checkbox', { name: '计算机科学' }))
+    await user.click(within(editor).getByRole('button', { name: '保存学习词库' }))
+    await waitFor(async () => {
+      const saved = await getUserDataSnapshot()
+      expect(saved.settings.activeCategories).toEqual(['math', 'daily'])
+      expect(saved.settings.learningGoal).toBe('math')
+      expect(saved.words).toEqual(initial.words)
+      expect(saved.tracks).toEqual(initial.tracks)
+    })
+  }, 30_000)
 
   it('lets guests inspect proposed plans without signing in or changing learning data', async () => {
     await initializeDatabase([handcraftedSeedWords[0]])
@@ -374,6 +467,7 @@ describe('App integration', () => {
     render(<StrictMode><App /></StrictMode>)
 
     expect(await screen.findByText('今日学习计划', {}, { timeout: 20_000 })).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: '暂时关闭' }))
     await user.click(screen.getByText('查看长期进度与统计依据'))
     expect(screen.getByText('表达积累')).toBeInTheDocument()
     expect(screen.getByText('日常生活')).toBeInTheDocument()
