@@ -69,13 +69,13 @@ function expectCompleteHandcraftedItem(item: Word): void {
 describe('seedWords', () => {
   it('keeps historical handcrafted seed ids and merges bundled pack senses', () => {
     expect(handcraftedSeedWords).toHaveLength(240)
-    expect(bundledSeedWords).toHaveLength(7263)
-    expect(seedWords).toHaveLength(7503)
+    expect(bundledSeedWords).toHaveLength(37222)
+    expect(seedWords).toHaveLength(37462)
     expect(seedWords.some((item) => item.id === 'seed-daily-001')).toBe(true)
     expect(seedWords.some((item) => item.id === 'seed-finance-001')).toBe(true)
     expect(seedWords.some((item) => item.id === 'seed-business-001')).toBe(true)
     expect(seedWords.every((item) => item.source === 'seed')).toBe(true)
-    expect(bundledSeedWords.every((item) => /^(v1|core|econ)-/.test(item.id))).toBe(true)
+    expect(bundledSeedWords.every((item) => /^(v1|core|econ|v6)-/.test(item.id))).toBe(true)
     expect(seedWords.some((item) => item.id.startsWith('v1-'))).toBe(true)
     expect(seedWords.some((item) => item.expression === 'rape')).toBe(false)
     expect(seedWords.some((item) => /customary's/i.test(item.expression))).toBe(false)
@@ -116,12 +116,34 @@ describe('seedWords', () => {
     expect(listSlugsForFormerFinance('equity')).toEqual(['finance', 'accounting'])
   })
 
-  it('includes four system lists and personal my-vocabulary', () => {
+  it('includes four system lists, the expansion categories, and personal my-vocabulary', () => {
     expect(ALL_VOCABULARY_LISTS.map((list) => list.slug)).toEqual([
       'daily',
       'business',
       'finance',
       'accounting',
+      'campus',
+      'housing',
+      'health',
+      'money',
+      'career',
+      'food',
+      'travel',
+      'government',
+      'emergency',
+      'shopping',
+      'social',
+      'entertainment',
+      'digital',
+      'communication',
+      'cs',
+      'economics',
+      'math',
+      'engineering',
+      'medicine',
+      'law',
+      'psychology',
+      'marketing',
       'my-vocabulary',
     ])
     expect(ALL_VOCABULARY_LISTS.find((list) => list.slug === 'my-vocabulary')?.isSystem).toBe(false)
@@ -142,11 +164,12 @@ describe('seedWords', () => {
   })
 
   it('gives bundled seed items usable prompts and memberships', () => {
+    const membershipWordIds = new Set(seedMemberships.map((membership) => membership.wordId))
     for (const item of bundledSeedWords) {
       expect(item.source).toBe('seed')
       expect(item.examples.length).toBeGreaterThanOrEqual(1)
       expect(item.usagePrompts.length).toBeGreaterThanOrEqual(2)
-      expect(seedMemberships.some((membership) => membership.wordId === item.id)).toBe(true)
+      expect(membershipWordIds.has(item.id)).toBe(true)
     }
   })
 })

@@ -69,6 +69,22 @@ describe('gradeAttempt', () => {
     })).toMatchObject({ correct: true, rating: 'good' })
   })
 
+  it.each([
+    ['B plus', 'B+', 'B-', 'A+'],
+    ['C minus', 'C−', 'C+', 'B-'],
+  ])('keeps both the letter and the sign when grading %s', (expression, correctAnswer, oppositeSign, wrongLetter) => {
+    const item = makeItem({ expression, acceptedEnVariants: [correctAnswer] })
+    expect(gradeAttempt({ item, trackType: 'productive', answer: correctAnswer }).correct).toBe(true)
+    expect(gradeAttempt({ item, trackType: 'productive', answer: oppositeSign }).correct).toBe(false)
+    expect(gradeAttempt({ item, trackType: 'productive', answer: wrongLetter }).correct).toBe(false)
+    expect(gradeAttempt({ item, trackType: 'productive', answer: expression[0] }).correct).toBe(false)
+  })
+
+  it('accepts the minus sign in commonly formatted letter grades', () => {
+    expect(normalizeEnglish('“C–”')).toBe('c minus')
+    expect(normalizeEnglish('(B+)')).toBe('b plus')
+  })
+
   it('marks one minor typo as hard but does not forgive short confusable finance words', () => {
     const entrepreneur = makeItem({ expression: 'entrepreneur', acceptedEnVariants: [] })
     expect(gradeAttempt({

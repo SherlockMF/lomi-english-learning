@@ -10,7 +10,7 @@ function withSeedFixture(check: (directory: string) => void) {
   if (dirname(directory) !== resolve(tmpdir()) || !directory.startsWith(`${resolve(tmpdir())}${sep}engstudy-seed-rebuild-`)) {
     throw new Error('Unexpected isolated build directory')
   }
-  const fixtures = ['scripts/buildBundledSeedPack.mjs', 'scripts/lib/handcraftedSenses.mjs',
+  const fixtures = ['scripts/buildBundledSeedPack.mjs', 'scripts/buildBundledExpansionPack.mjs', 'scripts/lib/handcraftedSenses.mjs',
     'src/data/seedVocabulary.ts', 'data/vocabulary-packs/trusted_v5_2_vocabulary_pack.json']
   const reviewFile = 'data/vocabulary-packs/handcrafted-overlap-review.json'
   if (existsSync(reviewFile)) fixtures.push(reviewFile)
@@ -20,6 +20,8 @@ function withSeedFixture(check: (directory: string) => void) {
       mkdirSync(dirname(destination), { recursive: true })
       cpSync(resolve(file), destination)
     }
+    // The expansion stage appends the v6 packs on top of the v5.2 build output.
+    cpSync(resolve('data/vocabulary-packs/expansion-v6/packs'), join(directory, 'data/vocabulary-packs/expansion-v6/packs'), { recursive: true })
     mkdirSync(join(directory, 'public/data'), { recursive: true })
     check(directory)
   } finally {
@@ -29,7 +31,10 @@ function withSeedFixture(check: (directory: string) => void) {
 
 it('rebuilds both published assets byte for byte and remains deterministic on a second run', () => {
   withSeedFixture((directory) => {
-    const run = () => execFileSync(process.execPath, [join(directory, 'scripts/buildBundledSeedPack.mjs')], { encoding: 'utf8' })
+    const run = () => {
+      execFileSync(process.execPath, [join(directory, 'scripts/buildBundledSeedPack.mjs')], { encoding: 'utf8' })
+      execFileSync(process.execPath, [join(directory, 'scripts/buildBundledExpansionPack.mjs')], { encoding: 'utf8' })
+    }
     const hash = (path: string) => createHash('sha256').update(readFileSync(path)).digest('hex')
     const assets = ['bundledSeedWords.json', 'bundledSeedMemberships.json']
     run()

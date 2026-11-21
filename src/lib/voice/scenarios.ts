@@ -1,4 +1,4 @@
-import type { SpeechAccent } from '../../domain/types'
+import type { SpeechAccent, SystemListSlug } from '../../domain/types'
 
 export const VOICE_SCENARIOS = [
   { id: 'daily', label: '日常生活', example: '例如：点餐、问路、购物', topic: '聊聊日常生活', role: 'a conversation partner for everyday life', placeholder: '例如：我在酒店办理入住，你是前台，帮我确认是否包含早餐。' },
@@ -9,6 +9,13 @@ export const VOICE_SCENARIOS = [
 export const MAX_SCENARIO_DESCRIPTION = 500
 export type VoiceScenario = typeof VOICE_SCENARIOS[number]['id']
 export type VoiceDifficulty = 'basic' | 'advanced'
+
+/** Learning goals outnumber voice scenarios; map each goal to its closest scenario. */
+export function voiceScenarioForGoal(goal: SystemListSlug | undefined): VoiceScenario {
+  if (goal === 'business') return 'business'
+  if (goal === 'finance' || goal === 'accounting') return 'finance'
+  return 'daily'
+}
 
 export interface VoiceOptions {
   scenario: VoiceScenario

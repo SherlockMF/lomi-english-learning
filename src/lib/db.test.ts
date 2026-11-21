@@ -211,7 +211,13 @@ describe('IndexedDB persistence', () => {
     expect(snapshot.tracks).toEqual([track({ reps: 5 })])
     expect(snapshot.attempts).toEqual([attempt()])
     expect(snapshot.settings.dailyMinutes).toBe(25)
-    expect(snapshot.settings.contentMix).toEqual({ daily: 0.4, business: 0.25, finance: 0.175, accounting: 0.175 })
+    expect(snapshot.settings.contentMix).toEqual({
+      ...DEFAULT_SETTINGS.contentMix,
+      daily: 0.4,
+      business: 0.25,
+      finance: 0.175,
+      accounting: 0.175,
+    })
     expect(snapshot.timeEntries).toEqual([])
   })
 

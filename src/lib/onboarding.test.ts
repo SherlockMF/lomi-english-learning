@@ -6,9 +6,14 @@ import { validateSettings } from './backup'
 import { buildFirstLessonPlan, onboardingSettings } from './onboarding'
 
 it('persists onboarding choices through backup validation and accepts old settings', () => {
-  const result = onboardingSettings(DEFAULT_SETTINGS, { goal: 'business', level: 'A2', count: 3, accent: 'us' }, new Date('2026-10-30T00:00:00Z'))
-  expect(validateSettings(result, '$')).toMatchObject({ onboardingCompletedAt: '2026-10-30T00:00:00.000Z', learningGoal: 'business', vocabularyLevel: 'A2', newItemsPerDay: 3, speechAccent: 'us' })
+  const result = onboardingSettings(DEFAULT_SETTINGS, { goal: 'business', level: 'A2', count: 3, accent: 'us', categories: ['daily', 'business', 'campus'] }, new Date('2026-10-30T00:00:00Z'))
+  expect(validateSettings(result, '$')).toMatchObject({ onboardingCompletedAt: '2026-10-30T00:00:00.000Z', learningGoal: 'business', vocabularyLevel: 'A2', newItemsPerDay: 3, speechAccent: 'us', activeCategories: ['daily', 'business', 'campus'] })
   expect(validateSettings(DEFAULT_SETTINGS, '$').onboardingCompletedAt).toBeUndefined()
+})
+
+it('falls back to the default categories when onboarding selects none', () => {
+  const result = onboardingSettings(DEFAULT_SETTINGS, { goal: 'daily', level: 'B1', count: 5, accent: 'uk', categories: [] }, new Date('2026-10-30T00:00:00Z'))
+  expect(result.activeCategories).toEqual(DEFAULT_SETTINGS.activeCategories)
 })
 
 it('limits the first lesson to three expressions in the selected scenario', () => {

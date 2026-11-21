@@ -8,6 +8,7 @@ import {
   type ReviewAttempt,
   type ReviewRating,
   type StudyTimeEntry,
+  type SystemListSlug,
   type TrackType,
   type UsagePrompt,
   type UserSettings,
@@ -19,6 +20,9 @@ import {
   type WordListItem,
   normalizeLemma,
   VOCABULARY_LEVELS,
+  ALL_LIST_SLUGS,
+  SYSTEM_LIST_ORDER,
+  DEFAULT_SETTINGS,
 } from '../domain/types'
 import { ALL_VOCABULARY_LISTS, listIdForSlug } from '../data/vocabularyLists'
 import { listSlugsForSeedCategory } from '../data/listAssignment'
@@ -248,21 +252,9 @@ export function validateVocabularyList(value: unknown, path: string): Vocabulary
   ])
   stringAt(record.id, `${path}.id`, true)
   stringAt(record.name, `${path}.name`, true)
-  literalAt(record.slug, `${path}.slug`, [
-    'daily',
-    'business',
-    'finance',
-    'accounting',
-    'my-vocabulary',
-  ] as const satisfies readonly ListSlug[])
+  literalAt(record.slug, `${path}.slug`, ALL_LIST_SLUGS)
   stringAt(record.description, `${path}.description`)
-  literalAt(record.category, `${path}.category`, [
-    'daily',
-    'business',
-    'finance',
-    'accounting',
-    'my-vocabulary',
-  ] as const satisfies readonly ListSlug[])
+  literalAt(record.category, `${path}.category`, ALL_LIST_SLUGS)
   booleanAt(record.isSystem, `${path}.isSystem`)
   dateAt(record.createdAt, `${path}.createdAt`)
   return record as unknown as VocabularyList
@@ -493,13 +485,23 @@ export function validateSettings(value: unknown, path: string, requireDailyMinut
     'difficultyResetAt',
     'onboardingCompletedAt',
     'learningGoal',
+    'activeCategories',
   ])
   literalAt(record.id, `${path}.id`, ['primary'] as const)
   if (record.vocabularyLevel !== undefined) literalAt(record.vocabularyLevel, `${path}.vocabularyLevel`, VOCABULARY_LEVELS)
   if (record.adaptiveDifficulty !== undefined) booleanAt(record.adaptiveDifficulty, `${path}.adaptiveDifficulty`)
   optionalDateAt(record.difficultyResetAt, `${path}.difficultyResetAt`)
   optionalDateAt(record.onboardingCompletedAt, `${path}.onboardingCompletedAt`)
-  if (record.learningGoal !== undefined) literalAt(record.learningGoal, `${path}.learningGoal`, ['daily', 'business', 'finance', 'accounting'] as const)
+  if (record.learningGoal !== undefined) literalAt(record.learningGoal, `${path}.learningGoal`, SYSTEM_LIST_ORDER)
+  if (record.activeCategories !== undefined) {
+    const activeCategories = arrayAt(record.activeCategories, `${path}.activeCategories`, (entry, entryPath) => {
+      literalAt(entry, entryPath, SYSTEM_LIST_ORDER)
+      return entry as SystemListSlug
+    })
+    if (new Set(activeCategories).size !== activeCategories.length) {
+      fail(`${path}.activeCategories`, '激活分类不能重复')
+    }
+  }
   if (requireDailyMinutes || record.dailyMinutes !== undefined) {
     finiteNumberAt(record.dailyMinutes, `${path}.dailyMinutes`, { integer: true, min: 5, max: 120 })
   }
@@ -526,12 +528,14 @@ export function validateSettings(value: unknown, path: string, requireDailyMinut
   if (record.dictionaryContentRevision !== undefined) {
     stringAt(record.dictionaryContentRevision, `${path}.dictionaryContentRevision`, true)
   }
-  const contentMix = objectAt(record.contentMix, `${path}.contentMix`, [
-    'daily',
-    'finance',
-    'business',
-    'accounting',
-  ])
+  const contentMix = objectAt(record.contentMix, `${path}.contentMix`, SYSTEM_LIST_ORDER)
+  for (const category of SYSTEM_LIST_ORDER) {
+    if (!(category in contentMix)) continue
+    finiteNumberAt(contentMix[category], `${path}.contentMix.${category}`, {
+      min: 0,
+      max: 1,
+    })
+  }
   for (const category of ['daily', 'finance', 'business'] as const) {
     finiteNumberAt(contentMix[category], `${path}.contentMix.${category}`, {
       min: 0,
@@ -565,6 +569,7 @@ export function validateSettings(value: unknown, path: string, requireDailyMinut
     ...(record as unknown as UserSettings),
     speechAccent: record.speechAccent === 'us' ? 'us' : 'uk',
     contentMix: {
+      ...DEFAULT_SETTINGS.contentMix,
       daily: contentMix.daily as number,
       business: contentMix.business as number,
       finance: normalizedFinance,

@@ -2410,6 +2410,7 @@ p {
 .failed-word-strip > div { display: flex; flex-wrap: wrap; gap: 6px; }
 .completion-weekly { display: inline-flex; align-items: center; gap: 7px; margin-bottom: 24px; color: var(--green); font-size: 10px; font-weight: 650; }
 .completion-card > .primary-button { width: 100%; }
+.completion-card > .secondary-button { width: 100%; margin-top: 10px; }
 
 @media (max-width: 900px) {
   .today-hero { grid-template-columns: 1fr 0.55fr; }

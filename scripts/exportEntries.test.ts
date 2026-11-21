@@ -4,6 +4,7 @@ import { afterEach, describe, expect, it } from 'vitest'
 import { createServer, type ViteDevServer } from 'vite'
 import { rolldown } from 'rolldown'
 import { SEED_CONTENT_REVISION } from '../src/data/seedContentRevision'
+import { ALL_VOCABULARY_LISTS } from '../src/data/vocabularyLists'
 
 let server: ViteDevServer | undefined
 afterEach(async () => { await server?.close(); server = undefined })
@@ -33,7 +34,7 @@ describe('Node export entries', () => {
     const diskSeed = await loadSeedPackFromDisk(process.cwd())
     expect(diskSeed.words).toEqual(browserSeed.words)
     expect(diskSeed.memberships).toEqual(browserSeed.memberships)
-    expect(diskSeed.lists).toHaveLength(5)
+    expect(diskSeed.lists).toEqual(ALL_VOCABULARY_LISTS)
     expect(diskSeed.revision).toBe(SEED_CONTENT_REVISION)
   })
 })

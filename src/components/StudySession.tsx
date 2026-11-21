@@ -91,6 +91,8 @@ interface StudySessionProps {
   difficultyLevel?: VocabularyLevel
   onExit: () => void
   onFinish: (summary: SessionSummary) => void
+  dailyPlanComplete?: boolean
+  onStartExtra?: () => void
 }
 
 type Submission = Pick<RateDetail, 'answer' | 'hintLevel' | 'responseMs' | 'reviewedAt' | 'attemptId' | 'promptId' | 'promptType'>
@@ -100,7 +102,7 @@ export function StudySession({
   sessionId: suppliedSessionId,
   timeEntries, onSaveTime, onDayChange, canVerifySentence = false,
   speechAccent = 'uk', onSpeechAccentChange, evaluate, resolveHint, ensureUsageItem,
-  onRate, onExit, onFinish, onMarkKnown, onRefreshTasks, difficultyLevel,
+  onRate, onExit, onFinish, onMarkKnown, onRefreshTasks, difficultyLevel, dailyPlanComplete, onStartExtra,
 }: StudySessionProps) {
   const sessionId = useRef(suppliedSessionId ?? crypto.randomUUID()).current
   const sessionDay = useRef(localStudyDate()).current
@@ -273,14 +275,14 @@ export function StudySession({
     const entry = failedSavesRef.current[0]
     if (entry) await persistRating(entry)
   }
-  async function requestExit() {
+  async function requestExit(onSaved = onExit) {
     if (flushingExit || savingRef.current || failedSavesRef.current.length) return
     requestId.current += 1
     setGrading(false)
     setHinting(false)
     setFlushingExit(true)
     timer.setRunning(false)
-    try { if (await timer.flush()) onExit() }
+    try { if (await timer.flush()) onSaved() }
     finally { if (mountedRef.current) setFlushingExit(false) }
   }
   async function rebuildSession(kind: 'day') {
@@ -433,13 +435,17 @@ export function StudySession({
     )
   }
   if (phase === 'complete') {
+    const completedToday = dailyPlanComplete && failedSaves.length === 0
+    const startExtra = completedToday ? onStartExtra : undefined
     return (
       <div className="study-overlay complete-overlay">
         <div className="completion-card">
           <div className="completion-mark"><Icon name="check" size={31} /></div>
           <p className="eyebrow">SESSION COMPLETE</p>
-          <h1>{summary.total ? '今天的记忆已经重新连上。' : '现在没有需要完成的训练。'}</h1>
-          <p>{summary.total ? '真正困难的内容已经安排在更合适的时间再次出现。' : '稍后再来，或先添加一个你想记住的表达。'}</p>
+          <h1>{completedToday ? '今天的学习计划已完成' : summary.total ? '今天的记忆已经重新连上。' : '现在没有需要完成的训练。'}</h1>
+          {completedToday
+            ? <p>{startExtra ? '要不要再学一小组新表达？' : '今天先学到这里，明天再来复习。'}</p>
+            : <p>{summary.total ? '真正困难的内容已经安排在更合适的时间再次出现。' : '稍后再来，或先添加一个你想记住的表达。'}</p>}
           <div className="completion-stats">
             <div><strong>{savedItemIds.current.size}</strong><span>本轮练习表达</span></div>
             <div><strong>{savedQuestionIds.current.size}</strong><span>本轮题量</span></div>
@@ -462,13 +468,18 @@ export function StudySession({
               <button className="secondary-button" disabled={pendingWrites > 0} onClick={() => void retryFailedSaves()} type="button">重试保存</button>
             </div>
           )}
+          {startExtra && (
+            <button className="primary-button large" disabled={flushingExit} onClick={() => void requestExit(startExtra)} type="button">
+              再学一组
+            </button>
+          )}
           <button
-            className="primary-button large"
+            className={startExtra ? 'secondary-button' : 'primary-button large'}
             disabled={flushingExit || failedSaves.length > 0}
             onClick={() => void requestExit()}
             type="button"
           >
-            {flushingExit ? '正在保存…' : failedSaves.length > 0 ? '请先重试保存' : '回到今天'}
+            {flushingExit ? '正在保存…' : failedSaves.length > 0 ? '请先重试保存' : startExtra ? '今天先到这里' : '回到今天'}
           </button>
         </div>
       </div>

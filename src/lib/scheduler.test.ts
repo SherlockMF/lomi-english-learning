@@ -4,6 +4,7 @@ import type {
   LearningTrack,
   ReviewAttempt,
   ListSlug,
+  SystemListSlug,
   TrackType,
   UserSettings,
   VocabularyItem,
@@ -92,8 +93,17 @@ function makeAttempt(
   }
 }
 
-function settings(overrides: Partial<UserSettings> = {}): UserSettings {
-  return { ...DEFAULT_SETTINGS, ...overrides }
+function settings(overrides: Partial<Omit<UserSettings, 'contentMix' | 'activeCategories'>> & {
+  contentMix?: Partial<Record<SystemListSlug, number>>
+  activeCategories?: SystemListSlug[]
+} = {}): UserSettings {
+  const { contentMix, activeCategories, ...rest } = overrides
+  return {
+    ...DEFAULT_SETTINGS,
+    ...rest,
+    ...(contentMix ? { contentMix: { ...DEFAULT_SETTINGS.contentMix, ...contentMix } } : {}),
+    ...(activeCategories ? { activeCategories } : {}),
+  }
 }
 
 describe('createInitialTracks and usage unlocking', () => {
@@ -415,6 +425,20 @@ describe('buildDailyPlan', () => {
     const plan = buildDailyPlan({ items, tracks: createInitialTracks(items, NOW), settings: settings({ newItemsPerDay: 100, contentMix: { daily: 0, business: 0, finance: 0, accounting: 1 } }), attempts: [], timeEntries: [], now: NOW })
     const ids = new Set(plan.tasks.map((task) => task.itemId))
     expect(categories.map((category) => ordinary.filter((item) => item.category === category && ids.has(item.id)).length)).toEqual([8, 6, 4, 2])
+  })
+
+  it('balances equally weighted opt-in subjects and excludes them from the default rotation', () => {
+    const items = [
+      makeItem('cs-1', 'cs', { vocabularyLevel: 'B1' }),
+      makeItem('cs-2', 'cs', { vocabularyLevel: 'B1' }),
+      makeItem('math-1', 'math', { vocabularyLevel: 'B1' }),
+      makeItem('math-2', 'math', { vocabularyLevel: 'B1' }),
+    ]
+    const input = { items, tracks: createInitialTracks(items, NOW), attempts: [], timeEntries: [], now: NOW }
+    const defaultPlan = buildDailyPlan({ ...input, settings: settings({ newItemsPerDay: 2 }) })
+    const subjectPlan = buildDailyPlan({ ...input, settings: settings({ newItemsPerDay: 2, activeCategories: ['cs', 'math'] }) })
+    expect(defaultPlan.newItemCount).toBe(0)
+    expect(new Set(subjectPlan.tasks.map(({ itemId }) => itemId))).toEqual(new Set(['cs-1', 'math-1']))
   })
 
   it.each([0, 1, 2, 3, 5, 7, 10, 20])('uses rounded 80/20 quotas for %i new words', (total) => {

@@ -19,6 +19,7 @@ import {
 } from './scheduler'
 import {
   DEFAULT_SETTINGS,
+  SYSTEM_LIST_ORDER,
   hydrateWord,
   normalizeLemma,
   primaryListSlug,
@@ -158,6 +159,7 @@ function createDefaultSettings(): UserSettings {
   return {
     ...DEFAULT_SETTINGS,
     contentMix: { ...DEFAULT_SETTINGS.contentMix },
+    activeCategories: [...DEFAULT_SETTINGS.activeCategories],
   }
 }
 
@@ -173,12 +175,13 @@ export function normalizeUserSettings(raw: Partial<UserSettings> | UserSettings)
     dailyMinutes: boundedInteger(raw.dailyMinutes ?? raw.coreMinutes, 5, 120, DEFAULT_SETTINGS.dailyMinutes),
     newItemsPerDay: boundedInteger(raw.newItemsPerDay, 0, 100, DEFAULT_SETTINGS.newItemsPerDay),
     contentMix: normalizeContentMix(raw.contentMix),
+    activeCategories: normalizeActiveCategories(raw.activeCategories),
     speechAccent: normalizeSpeechAccent(raw.speechAccent),
     vocabularyLevel: isVocabularyLevel(raw.vocabularyLevel) ? raw.vocabularyLevel : 'B1',
     adaptiveDifficulty: typeof raw.adaptiveDifficulty === 'boolean' ? raw.adaptiveDifficulty : true,
     difficultyResetAt: typeof raw.difficultyResetAt === 'string' && Number.isFinite(Date.parse(raw.difficultyResetAt)) ? raw.difficultyResetAt : undefined,
     onboardingCompletedAt: typeof raw.onboardingCompletedAt === 'string' && Number.isFinite(Date.parse(raw.onboardingCompletedAt)) ? raw.onboardingCompletedAt : undefined,
-    learningGoal: raw.learningGoal && ['daily', 'business', 'finance', 'accounting'].includes(raw.learningGoal) ? raw.learningGoal : undefined,
+    learningGoal: raw.learningGoal && SYSTEM_LIST_ORDER.includes(raw.learningGoal) ? raw.learningGoal : undefined,
     seedContentRevision:
       typeof raw.seedContentRevision === 'string' && raw.seedContentRevision.trim()
         ? raw.seedContentRevision.trim()
@@ -200,6 +203,18 @@ export function normalizeDictionaryQuery(query: string): string {
   return query.trim().toLocaleLowerCase('en-US')
 }
 
+function normalizeActiveCategories(raw: unknown): SystemListSlug[] {
+  if (!Array.isArray(raw)) return [...DEFAULT_SETTINGS.activeCategories]
+  const known = new Set<string>(SYSTEM_LIST_ORDER)
+  const unique = new Set<string>()
+  for (const entry of raw) {
+    if (typeof entry === 'string' && known.has(entry)) unique.add(entry)
+  }
+  return unique.size ? [...unique].sort((left, right) => (
+    SYSTEM_LIST_ORDER.indexOf(left as SystemListSlug) - SYSTEM_LIST_ORDER.indexOf(right as SystemListSlug)
+  )) as SystemListSlug[] : [...DEFAULT_SETTINGS.activeCategories]
+}
+
 function normalizeContentMix(raw: Record<string, number> | undefined): Record<SystemListSlug, number> {
   const defaults = DEFAULT_SETTINGS.contentMix
   if (!raw) return { ...defaults }
@@ -208,12 +223,17 @@ function normalizeContentMix(raw: Record<string, number> | undefined): Record<Sy
   const finance = Number(raw.finance)
   const accounting = Number(raw.accounting)
   const legacyFinanceMix = !Number.isFinite(accounting) && Number.isFinite(finance)
-  return {
-    daily: Number.isFinite(daily) ? daily : defaults.daily,
-    business: Number.isFinite(business) ? business : defaults.business,
-    finance: legacyFinanceMix ? finance * 0.5 : Number.isFinite(finance) ? finance : defaults.finance,
-    accounting: legacyFinanceMix ? finance * 0.5 : Number.isFinite(accounting) ? accounting : defaults.accounting,
+  const normalized: Record<SystemListSlug, number> = { ...defaults }
+  normalized.daily = Number.isFinite(daily) ? daily : defaults.daily
+  normalized.business = Number.isFinite(business) ? business : defaults.business
+  normalized.finance = legacyFinanceMix ? finance * 0.5 : Number.isFinite(finance) ? finance : defaults.finance
+  normalized.accounting = legacyFinanceMix ? finance * 0.5 : Number.isFinite(accounting) ? accounting : defaults.accounting
+  for (const category of SYSTEM_LIST_ORDER) {
+    if (category in defaults) continue
+    const value = Number(raw[category])
+    normalized[category] = Number.isFinite(value) ? value : 0
   }
+  return normalized
 }
 
 function migrateLegacyVocabularyRecord(raw: Record<string, unknown>): Word {

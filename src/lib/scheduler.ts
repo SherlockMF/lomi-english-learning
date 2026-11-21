@@ -12,7 +12,7 @@ import type {
 } from '../domain/types'
 import { isExplicitFailure, isValidRecallSuccess } from './learningEvidence'
 import { activeMsForDate, introducedItemIdsToday, localDateKey } from './learningStats'
-import { VOCABULARY_LEVELS, type VocabularyLevel } from '../domain/types'
+import { VOCABULARY_LEVELS, SYSTEM_LIST_ORDER, type SystemListSlug, type VocabularyLevel } from '../domain/types'
 import { getStudyDifficulty, getVocabularyDifficulty } from './studyDifficulty'
 import { recallContext } from './presentation'
 import { expressionKey } from './text'
@@ -22,10 +22,10 @@ export type SchedulerDate = Date | string | number
 
 export const CORE_TASK_MINUTES = 0.75
 export const USAGE_TASK_MINUTES = 2
-const CATEGORY_ORDER = ['daily', 'business', 'finance', 'accounting'] as const
+const CATEGORY_ORDER = SYSTEM_LIST_ORDER
 const CORE_TRACK_TYPES: readonly TrackType[] = ['receptive', 'productive']
 
-type MixedCategory = (typeof CATEGORY_ORDER)[number]
+type MixedCategory = SystemListSlug
 
 interface QueueCandidate {
   task: SessionTask
@@ -180,15 +180,37 @@ function compareItems(left: VocabularyItem, right: VocabularyItem) {
   return createdDifference || left.id.localeCompare(right.id)
 }
 
-const ORDINARY_CATEGORY_WEIGHTS = { daily: 4, business: 3, finance: 2, accounting: 1 }
+const ORDINARY_CATEGORY_WEIGHTS: Record<MixedCategory, number> = {
+  daily: 4,
+  business: 3,
+  finance: 2,
+  accounting: 1,
+  campus: 4,
+  housing: 3,
+  health: 3,
+  money: 3,
+  career: 3,
+  food: 2,
+  travel: 2,
+  government: 2,
+  emergency: 1,
+  shopping: 2,
+  social: 2,
+  entertainment: 1,
+  digital: 2,
+  communication: 2,
+  cs: 1,
+  economics: 1,
+  math: 1,
+  engineering: 1,
+  medicine: 1,
+  law: 1,
+  psychology: 1,
+  marketing: 1,
+}
 
 function categoryCounts(items: VocabularyItem[]) {
-  const counts: Record<MixedCategory, number> = {
-    daily: 0,
-    business: 0,
-    finance: 0,
-    accounting: 0,
-  }
+  const counts = Object.fromEntries(CATEGORY_ORDER.map((category) => [category, 0])) as Record<MixedCategory, number>
   for (const item of items) {
     if (item.category !== 'my-vocabulary' && item.category in counts) {
       counts[item.category as MixedCategory] += 1
@@ -202,16 +224,13 @@ function selectNewItems(
   limit: number,
   priorityLimit: number,
   level: VocabularyLevel,
-  initialCounts: Record<MixedCategory, number> = {
-    daily: 0,
-    business: 0,
-    finance: 0,
-    accounting: 0,
-  },
+  initialCounts: Record<MixedCategory, number> = Object.fromEntries(CATEGORY_ORDER.map((category) => [category, 0])) as Record<MixedCategory, number>,
+  activeCategories: readonly SystemListSlug[] = CATEGORY_ORDER,
 ) {
   if (limit <= 0) return []
+  const isActive = (item: VocabularyItem) => item.listSlugs.includes('my-vocabulary') || activeCategories.includes(item.category as SystemListSlug)
   const distance = (item: VocabularyItem) => Math.abs(VOCABULARY_LEVELS.indexOf(getVocabularyDifficulty(item).level) - VOCABULARY_LEVELS.indexOf(level))
-  const sorted = candidates.filter((item) => !item.listSlugs.includes('my-vocabulary'))
+  const sorted = candidates.filter((item) => !item.listSlugs.includes('my-vocabulary') && isActive(item))
     .sort((left, right) => distance(left) - distance(right) || compareItems(left, right))
   const personal = sorted.filter((item) => item.category === 'my-vocabulary')
   const selected = candidates.filter((item) => item.listSlugs.includes('my-vocabulary'))
@@ -328,6 +347,8 @@ export interface DailyPlanInput {
   attempts: ReviewAttempt[]
   timeEntries: StudyTimeEntry[]
   now: SchedulerDate
+  /** Total new expressions allowed today for an optional extra round. */
+  newItemTarget?: number
   /** Legacy budget metadata; no longer limits the learning queue. */
   additionalMinutes?: number
 }
@@ -374,7 +395,7 @@ export function buildDailyPlan(input: DailyPlanInput): DailyPlan {
     : Math.max(0, dailyMinutes * 60_000 - usedMs)
   const introducedIds = introducedItemIdsToday(attempts, now)
   const introduced = introducedIds.size
-  const dailyTarget = getAdaptiveNewItemTarget(settings, items, input.tracks, attempts, now)
+  const dailyTarget = input.newItemTarget ?? getAdaptiveNewItemTarget(settings, items, input.tracks, attempts, now)
   const remainingNewItems = Math.max(0, dailyTarget - introduced)
   const tracks = unlockEligibleUsageTracks(input.tracks, now, attempts)
   const activeItems = activeItemMap(items)
@@ -422,14 +443,21 @@ export function buildDailyPlan(input: DailyPlanInput): DailyPlan {
   const difficulty = getStudyDifficulty(settings, items, validAttempts, now)
   // Carry category counts across days; each ordinary word spends one slot at first introduction.
   const ordinaryHistory = items.filter((item) => firstAttempts.has(item.id) && !wasPriority(item.id))
-  const newItems = selectNewItems(freshItems, remainingNewItems, remainingPriority, difficulty.level, categoryCounts(ordinaryHistory))
+  const newItems = selectNewItems(
+    freshItems,
+    remainingNewItems,
+    remainingPriority,
+    difficulty.level,
+    categoryCounts(ordinaryHistory),
+    settings.activeCategories ?? CATEGORY_ORDER,
+  )
   const newCandidates = newItemCandidates(newItems, eligibleTracks, 1, 'core', nowValue)
   const selected = [...separateItems(due), ...separateItems(newCandidates)]
   const newIds = new Set(newItems.map((item) => item.id))
   const tasks = selected.map((candidate) => ({ ...candidate.task, isNew: newIds.has(candidate.task.itemId) }))
   const estimatedMinutes = selected.reduce((sum, candidate) => sum + candidate.minutes, 0)
   const reasons: string[] = []
-  reasons.push(`每日新表达 ${dailyTarget} 个：优先学习约 80%（${priorityTarget} 个），其他词库约 20%（${dailyTarget - priorityTarget} 个）；一方不足由另一方补齐。普通词跨天累计，按日常、商业、金融、会计 4:3:2:1 加权选取。`)
+  reasons.push(`每日新表达 ${dailyTarget} 个：优先学习约 80%（${priorityTarget} 个），其他词库约 20%（${dailyTarget - priorityTarget} 个）；一方不足由另一方补齐。普通词跨天累计，在已激活的 ${(settings.activeCategories ?? CATEGORY_ORDER).length} 类场景中按权重选取。`)
   reasons.push(`普通新词优先安排 ${difficulty.level}，同级不足时补充相邻等级。${settings.adaptiveDifficulty === false ? '自动调整已关闭。' : `自动调整已开启：连续轻松 ${difficulty.easyStreak}/3，连续困难 ${difficulty.hardStreak}/2；累计调整 ${difficulty.changes} 次。`}`)
   if (remainingNewItems === 0) reasons.push(settings.newItemsPerDay === 0
     ? '今日新表达上限为 0，只安排已学内容。' : '今日新表达额度已用完；其他方向与重试不重复计新表达。')

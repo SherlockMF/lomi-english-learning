@@ -11,9 +11,9 @@ const seedMemberships = bundled.memberships
 
 describe('vocabulary V5 trusted library', () => {
   it('keeps 7503 production senses after reviewed dedupe and six distinct additions', () => {
-    expect(bundledSeedWords).toHaveLength(7263)
-    expect(seedWords).toHaveLength(7503)
-    expect(bundledSeedWords.every((item) => /^(v1|core|econ)-/.test(item.id))).toBe(true)
+    expect(bundledSeedWords).toHaveLength(37222)
+    expect(seedWords).toHaveLength(37462)
+    expect(bundledSeedWords.every((item) => /^(v1|core|econ|v6)-/.test(item.id))).toBe(true)
     expect(bundledSeedWords.filter((item) => item.id.startsWith('v1-')).length).toBe(762)
   })
 
@@ -418,6 +418,6 @@ describe('vocabulary V5 trusted library', () => {
         2,
       ),
     )
-    expect(progress.total).toBe(7503)
+    expect(progress.total).toBe(12387)
   })
 })

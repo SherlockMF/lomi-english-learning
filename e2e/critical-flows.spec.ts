@@ -131,7 +131,7 @@ test('finishes recall, saves FSRS and survives reopening without AI', async ({ p
   const correction = page.getByLabel('看完答案后，再正确输入一次')
   if (await correction.isVisible()) await correction.fill(await page.locator('.answer-reveal h1').innerText())
   await page.getByRole('button', { name: /忘记了.*很快再练/ }).click()
-  const completed = page.getByRole('heading', { name: '今天的记忆已经重新连上。', exact: true })
+  const completed = page.getByRole('heading', { name: '今天的学习计划已完成', exact: true })
   const question = page.locator('#recall-answer')
   for (let remaining = 6; remaining > 0; remaining--) {
     // oxlint-disable-next-line no-await-in-loop -- Finish each saved question before inspecting the next phase.
@@ -150,8 +150,9 @@ test('finishes recall, saves FSRS and survives reopening without AI', async ({ p
     await page.getByRole('button', { name: /想起来了.*正常间隔/ }).click()
   }
   await expect(completed).toBeVisible()
-  await page.getByRole('button', { name: '回到今天', exact: true }).click()
+  await page.getByRole('button', { name: '今天先到这里', exact: true }).click()
   await expect(page.getByRole('heading', { name: '今日学习计划' })).toBeVisible()
+  await expect(page.getByRole('button', { name: '再学一组', exact: true })).toBeVisible()
   const saved = await snapshot(page)
   expect(saved.attempts.length).toBeGreaterThanOrEqual(2)
   expect(saved.attempts.some(attempt => attempt.evaluationSource === 'reveal')).toBe(true)

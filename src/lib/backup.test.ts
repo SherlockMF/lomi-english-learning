@@ -104,7 +104,7 @@ function backupV1(overrides: Partial<BackupV1> = {}): BackupV1 {
     attempts: [attempt()],
     settings: {
       ...DEFAULT_SETTINGS,
-      contentMix: { daily: 0.4, finance: 0.35, business: 0.25, accounting: 0 },
+      contentMix: { ...DEFAULT_SETTINGS.contentMix, daily: 0.4, finance: 0.35, business: 0.25, accounting: 0 },
     },
     ...overrides,
   }

@@ -12,6 +12,7 @@ interface TodayViewProps {
   mapProgress: MapLearningProgress
   recentWords: { expression: string; zhGloss: string; stage: string }[]
   onStart: () => void
+  onStartExtra?: () => void
 }
 
 export function TodayView({
@@ -22,9 +23,12 @@ export function TodayView({
   mapProgress,
   recentWords,
   onStart,
+  onStartExtra,
 }: TodayViewProps) {
   const noHintRate = stats.delayedRecall.rate === null ? null : Math.round(stats.delayedRecall.rate * 100)
   const usedMinutes = Math.round(plan.usedMs / 6000) / 10
+  const hasTasks = plan.totalTasks > 0
+  const practicedToday = stats.practicedItems > 0
   const startedProgress = mapProgress.total
     ? Math.min(100, Math.round((mapProgress.started / mapProgress.total) * 100))
     : 0
@@ -50,31 +54,41 @@ export function TodayView({
         <div className="hero-copy">
           <div className="session-kicker"><span /> TODAY'S RECALL</div>
           <h2 id="today-session-title">今日学习计划</h2>
-          <p>今日已学习 {usedMinutes} 分钟 · 按自己的节奏完成</p>
-          <p>本次 {plan.totalTasks} 道练习，包含 {plan.newItemCount} 个新表达。只记录学习时间，不限时。</p>
-
-          <div className="session-metrics">
-            <div><span>复习题</span><strong>{plan.reviewTaskCount}</strong></div>
-            <div><span>新表达</span><strong>{plan.newItemCount}</strong></div>
-            <div><span>应用题</span><strong>{plan.usageTaskCount}</strong></div>
-          </div>
+          {hasTasks ? (
+            <>
+              <p>今日已学习 {usedMinutes} 分钟 · 按自己的节奏完成</p>
+              <p>本次 {plan.totalTasks} 道练习，包含 {plan.newItemCount} 个新表达。只记录学习时间，不限时。</p>
+              <div className="session-metrics">
+                <div><span>复习题</span><strong>{plan.reviewTaskCount}</strong></div>
+                <div><span>新表达</span><strong>{plan.newItemCount}</strong></div>
+                <div><span>应用题</span><strong>{plan.usageTaskCount}</strong></div>
+              </div>
+            </>
+          ) : (
+            <>
+              <p>{practicedToday ? '今天的学习计划已完成。' : '当前暂无待学内容。'}</p>
+              {onStartExtra && <p>要不要再学一小组新表达？</p>}
+            </>
+          )}
           <div className="plan-explanation">
             <p>今日已引入 {plan.introducedToday} 个新表达 · 剩余额度 {plan.remainingNewItems} 个</p>
             {plan.overflowDueCount > 0 && <p>仍有 {plan.overflowDueCount} 道到期练习未安排</p>}
             <details><summary>为什么这样安排</summary>{plan.reasons.map((reason) => <p key={reason}>{reason}</p>)}</details>
           </div>
 
-          <div className="hero-actions">
-            <button className="primary-button large" disabled={plan.totalTasks === 0} onClick={onStart} type="button">
-              {plan.totalTasks === 0 ? '当前计划已完成' : '开始今天的训练'} <Icon name="arrow" size={19} />
-            </button>
-          </div>
+          {(hasTasks || onStartExtra) && (
+            <div className="hero-actions">
+              <button className="primary-button large" onClick={hasTasks ? onStart : onStartExtra} type="button">
+                {hasTasks ? '开始今天的训练' : '再学一组'} <Icon name="arrow" size={19} />
+              </button>
+            </div>
+          )}
         </div>
 
-        <div className="time-orb-wrap" aria-label={`预计 ${plan.estimatedMinutes} 分钟，共 ${plan.totalTasks} 道练习`}>
+        <div className="time-orb-wrap" aria-label={hasTasks ? `预计 ${plan.estimatedMinutes} 分钟，共 ${plan.totalTasks} 道练习` : `今日已学习 ${usedMinutes} 分钟`}>
           <div className="time-orb">
-            <span className="orb-small">预计</span>
-            <strong>{plan.estimatedMinutes}</strong>
+            <span className="orb-small">{hasTasks ? '预计' : '今日已学'}</span>
+            <strong>{hasTasks ? plan.estimatedMinutes : usedMinutes}</strong>
             <span>分钟</span>
           </div>
           <div className="orbit-dot one" />
@@ -85,7 +99,7 @@ export function TodayView({
       <section className="panel learning-outcome" aria-labelledby="outcome-title">
         <p className="eyebrow">ONE STEP AT A TIME</p><h2 id="outcome-title">今天的收获，下一步的方向</h2>
         <p>{stats.practicedItems ? `今天已经练过 ${stats.practicedItems} 个表达。反复尝试也是学习的一部分，不必一次全答对。` : '还没有今天的练习记录。从第一小课开始，试着自己想出答案。'}</p>
-        <p>{plan.reviewTaskCount > 0 ? `下一步：先完成 ${plan.reviewTaskCount} 道到期复习，把学过的再想起来。` : plan.newItemCount > 0 ? `下一步：认识 ${plan.newItemCount} 个新表达，再试着用自己的话说出来。` : '今天安排的练习已完成。可以去口语页练一段对话，或明天回来看看新的复习。'}</p>
+        <p>{plan.reviewTaskCount > 0 ? `下一步：先完成 ${plan.reviewTaskCount} 道到期复习，把学过的再想起来。` : plan.newItemCount > 0 ? `下一步：认识 ${plan.newItemCount} 个新表达，再试着用自己的话说出来。` : '可以去口语页练一段对话，或明天回来看看新的复习。'}</p>
         {stats.retainedCount > 0 && <p>已有 {stats.retainedCount} 个表达，在间隔一段时间后仍能想起来。</p>}
       </section>
 

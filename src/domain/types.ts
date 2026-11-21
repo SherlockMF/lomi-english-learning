@@ -1,6 +1,32 @@
 import { SEED_CONTENT_REVISION } from '../data/seedContentRevision'
 
-export type SystemListSlug = 'daily' | 'business' | 'finance' | 'accounting'
+export type SystemListSlug =
+  | 'daily'
+  | 'business'
+  | 'finance'
+  | 'accounting'
+  | 'campus'
+  | 'housing'
+  | 'health'
+  | 'money'
+  | 'career'
+  | 'food'
+  | 'travel'
+  | 'government'
+  | 'emergency'
+  | 'shopping'
+  | 'social'
+  | 'entertainment'
+  | 'digital'
+  | 'communication'
+  | 'cs'
+  | 'economics'
+  | 'math'
+  | 'engineering'
+  | 'medicine'
+  | 'law'
+  | 'psychology'
+  | 'marketing'
 export type ListSlug = SystemListSlug | 'my-vocabulary'
 export type VocabularySource = 'seed' | 'dictionary' | 'custom'
 export type VocabularyStatus = 'active' | 'paused'
@@ -149,6 +175,8 @@ export interface UserSettings {
   coreMinutes: number
   extensionMinutes: number
   desiredRetention: number
+  /** System categories whose words may enter the ordinary new-item rotation. */
+  activeCategories: SystemListSlug[]
   newItemsPerDay: number
   /** Legacy backup field; new-word scheduling uses fixed daily/business/finance/accounting weights. */
   contentMix: Record<SystemListSlug, number>
@@ -269,7 +297,40 @@ export const SYSTEM_LIST_ORDER: readonly SystemListSlug[] = [
   'business',
   'finance',
   'accounting',
+  'campus',
+  'housing',
+  'health',
+  'money',
+  'career',
+  'food',
+  'travel',
+  'government',
+  'emergency',
+  'shopping',
+  'social',
+  'entertainment',
+  'digital',
+  'communication',
+  'cs',
+  'economics',
+  'math',
+  'engineering',
+  'medicine',
+  'law',
+  'psychology',
+  'marketing',
 ] as const
+
+/** Every selectable list slug, for schema validators that pin slugs literally. */
+export const ALL_LIST_SLUGS = [...SYSTEM_LIST_ORDER, 'my-vocabulary'] as const satisfies readonly ListSlug[]
+
+/** Categories included in ordinary new-item rotation before the user opts in to more. */
+export const DEFAULT_ACTIVE_CATEGORIES: readonly SystemListSlug[] = [
+  'daily',
+  'business',
+  'finance',
+  'accounting',
+]
 
 export const DEFAULT_SETTINGS: UserSettings = {
   id: 'primary',
@@ -278,7 +339,35 @@ export const DEFAULT_SETTINGS: UserSettings = {
   extensionMinutes: 15,
   desiredRetention: 0.9,
   newItemsPerDay: 5,
-  contentMix: { daily: 0.35, business: 0.25, finance: 0.2, accounting: 0.2 },
+  contentMix: {
+    daily: 0.35,
+    business: 0.25,
+    finance: 0.2,
+    accounting: 0.2,
+    campus: 0,
+    housing: 0,
+    health: 0,
+    money: 0,
+    career: 0,
+    food: 0,
+    travel: 0,
+    government: 0,
+    emergency: 0,
+    shopping: 0,
+    social: 0,
+    entertainment: 0,
+    digital: 0,
+    communication: 0,
+    cs: 0,
+    economics: 0,
+    math: 0,
+    engineering: 0,
+    medicine: 0,
+    law: 0,
+    psychology: 0,
+    marketing: 0,
+  },
+  activeCategories: [...DEFAULT_ACTIVE_CATEGORIES],
   speechAccent: 'uk',
   vocabularyLevel: 'B1',
   adaptiveDifficulty: true,

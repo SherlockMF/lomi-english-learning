@@ -195,6 +195,40 @@ describe('vocabulary pack import and export', () => {
     expect(tracks.filter((track) => track.itemId === 'custom-new').length).toBeGreaterThanOrEqual(2)
   })
 
+  it.each(['cs', 'economics', 'math', 'engineering', 'medicine', 'law', 'psychology', 'marketing'])(
+    'imports %s as an optional system list and keeps its subcategory on repeat import',
+    async (slug) => {
+      const incoming = {
+        ...pack(),
+        lists: [{
+          id: `external-${slug}`,
+          name: slug,
+          slug,
+          description: '',
+          category: slug,
+          isSystem: true,
+          createdAt: older,
+        }],
+        memberships: [{
+          id: `membership-${slug}`,
+          wordId: 'vocabulary-1',
+          listId: `external-${slug}`,
+          subcategory: 'course-terminology',
+          priority: 1,
+          sortOrder: 0,
+        }],
+      }
+
+      expect(await importVocabularyPack(incoming)).toEqual({ added: 1, updated: 0, unchanged: 0, membershipsAdded: 1 })
+      expect(await importVocabularyPack(incoming)).toEqual({ added: 0, updated: 0, unchanged: 1, membershipsAdded: 0 })
+      expect((await getAllVocabulary()).find((item) => item.id === 'vocabulary-1')?.listSlugs).toEqual([slug])
+      expect((await exportVocabularyPack()).memberships).toEqual([
+        expect.objectContaining({ listId: `list-${slug}`, subcategory: 'course-terminology' }),
+      ])
+      expect(DEFAULT_SETTINGS.activeCategories).not.toContain(slug)
+    },
+  )
+
   it('keeps local progress and wording when merging the same identity', async () => {
     const attempt: ReviewAttempt = {
       id: 'attempt-1',

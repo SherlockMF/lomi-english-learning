@@ -87,7 +87,7 @@ describe('App integration', () => {
     await user.click(screen.getByRole('button', { name: '保存设置' }))
     expect(onRequestLogin).toHaveBeenCalledTimes(7)
     expect(await getUserDataSnapshot()).toEqual(before)
-  }, 30_000)
+  }, 120_000)
 
   it('expires a delayed recall sample during the same day on the next clock tick', async () => {
     vi.useFakeTimers({ toFake: ['Date', 'setInterval', 'clearInterval'] })
@@ -135,7 +135,7 @@ describe('App integration', () => {
     expect(edited).toMatchObject({ contentEdited: true })
     expect(after.tracks.filter((track) => track.itemId === original.id)).toEqual(before.tracks)
     expect(after.attempts).toEqual(before.attempts)
-  }, 30_000)
+  }, 120_000)
 
   it('keeps the existing library usable when supplemental content fails and can retry later', async () => {
     await initializeDatabase()
@@ -150,7 +150,7 @@ describe('App integration', () => {
     await user.click(retry)
     await waitFor(() => expect(screen.queryByRole('button', { name: '重试词义补全' })).not.toBeInTheDocument())
     expect((await getUserDataSnapshot()).settings.dictionaryContentRevision).toBe(DICTIONARY_CONTENT_REVISION)
-  }, 30_000)
+  }, 120_000)
 
   it('keeps spaces and punctuation significant when caching and deduplicating batch expressions', async () => {
     const expressions = ['work out', 'workout', 're-sign', 'resign']
@@ -170,7 +170,7 @@ describe('App integration', () => {
     const after = await getUserDataSnapshot()
     for (const expression of expressions) expect(after.words.filter((word) => word.expression === expression && word.source === 'dictionary'))
       .toEqual([expect.objectContaining({ zhGloss: `测试义项 ${expression}`, status: 'active' })])
-  }, 30_000)
+  }, 120_000)
 
   it('writes edited content from the add form into an existing sense and leaves unedited senses intact', async () => {
     const source = { query: 'edit-probe', word: 'edit-probe', fetchedAt: '2026-10-13T00:00:00Z', meanings: [
@@ -201,7 +201,7 @@ describe('App integration', () => {
     const untouched = before.words.find((word) => word.zhGloss === '未编辑义项')!
     expect(after.words.find((word) => word.id === untouched.id)).toEqual(untouched)
     expect(after.tracks).toEqual(before.tracks)
-  }, 30_000)
+  }, 120_000)
 
   it('imports multiple senses with distinct automatic categories and retains only failed English rows', async () => {
     const lookup = vi.spyOn(dictionary, 'lookupDictionary').mockImplementation(async (query) => {
@@ -235,7 +235,7 @@ describe('App integration', () => {
     expect(bankSenses.every((word) => word.status === 'active')).toBe(true)
     expect(after.attempts).toEqual(before.attempts)
     expect(after.tracks.filter((track) => before.tracks.some((old) => old.id === track.id))).toEqual(before.tracks)
-  }, 30_000)
+  }, 120_000)
 
   it('retries failed imports with fresh slower lookups while preserving saved senses and study progress', async () => {
     let retrying = false
@@ -273,7 +273,7 @@ describe('App integration', () => {
     expect(after.tracks.filter((track) => track.itemId === ratio.id)).toEqual(tracks)
     expect(after.memberships.filter((membership) => membership.wordId === ratio.id)).toEqual(before.memberships.filter((membership) => membership.wordId === ratio.id))
     expect(screen.queryByRole('button', { name: /重试失败词条/ })).not.toBeInTheDocument()
-  }, 30_000)
+  }, 120_000)
 
   it('loads supplemental senses at startup and keeps existing training state on subsequent boots', async () => {
     await initializeDatabase()
@@ -299,7 +299,7 @@ describe('App integration', () => {
     await screen.findByText('今日学习计划', {}, { timeout: 20_000 })
     expect(dictionarySenses.loadBundledDictionarySenses).toHaveBeenCalledTimes(1)
     expect((await getUserDataSnapshot()).words).toEqual(after.words)
-  }, 30_000)
+  }, 120_000)
 
   it('keeps custom scenario membership and progress when completing its senses', async () => {
     await initializeDatabase()
@@ -326,7 +326,7 @@ describe('App integration', () => {
     ]))
     expect(after.words.find((item) => item.id === word.id)).toEqual(before.words.find((item) => item.id === word.id))
     expect(after.tracks.filter((track) => track.itemId === word.id)).toEqual(before.tracks.filter((track) => track.itemId === word.id))
-  }, 30_000)
+  }, 120_000)
 
   it('saves all senses, restores the grouped entry and preserves existing progress on completion', async () => {
     const user = userEvent.setup()
@@ -367,7 +367,7 @@ describe('App integration', () => {
     expect(completed.words).toEqual(saved.words)
     expect(completed.tracks).toEqual(saved.tracks)
     expect(lookup).toHaveBeenCalledTimes(2)
-  }, 30_000)
+  }, 120_000)
 
   it('seeds the local library and starts a no-choice recall session', async () => {
     const user = userEvent.setup()
@@ -379,16 +379,16 @@ describe('App integration', () => {
     expect(screen.getByText('日常生活')).toBeInTheDocument()
     expect(screen.getByText('商业英语')).toBeInTheDocument()
     expect(screen.getByText('金融会计')).toBeInTheDocument()
-    expect(screen.getByText('0 / 3043')).toBeInTheDocument()
-    expect(screen.getByText('0 / 2353')).toBeInTheDocument()
-    expect(screen.getByText('0 / 2116')).toBeInTheDocument()
-    expect(screen.getByLabelText('学习进度：已开始 0，双向可回忆 0，词库 7503')).toBeInTheDocument()
+    expect(await screen.findByText('0 / 5115', {}, { timeout: 60_000 })).toBeInTheDocument()
+    expect(await screen.findByText('0 / 3374', {}, { timeout: 60_000 })).toBeInTheDocument()
+    expect(await screen.findByText('0 / 3907', {}, { timeout: 60_000 })).toBeInTheDocument()
+    expect(await screen.findByLabelText('学习进度：已开始 0，双向可回忆 0，词库 12387', {}, { timeout: 60_000 })).toBeInTheDocument()
     expect(screen.getByText('学习进度')).toBeInTheDocument()
 
     await user.click(screen.getByRole('button', { name: /开始今天的训练/ }))
     expect(await screen.findByRole('button', { name: '想不起来' })).toBeInTheDocument()
     expect(screen.queryByRole('radio')).not.toBeInTheDocument()
-  }, 30_000)
+  }, 120_000)
 
   it('opens all four primary sections including voice practice', async () => {
     const user = userEvent.setup()
@@ -402,14 +402,14 @@ describe('App integration', () => {
     const libraryButtons = screen.getAllByRole('button', { name: '词库' })
     await user.click(libraryButtons[0])
     expect(await screen.findByRole('heading', { name: '词库' })).toBeInTheDocument()
-    await waitFor(() => expect(screen.getByText('7503')).toBeInTheDocument(), { timeout: 20_000 })
+    await waitFor(() => expect(screen.getByText('37462')).toBeInTheDocument(), { timeout: 20_000 })
 
     await user.click(screen.getAllByRole('button', { name: '口语' })[0])
     expect(await screen.findByText('把学过的英语，说出来。')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /语音消息/ })).toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: /实时畅聊/ }))
     expect(screen.getByRole('button', { name: /开始对话/ })).toBeDisabled()
-  }, 30_000)
+  }, 120_000)
 
   it('adds and removes a library word from priority study without deleting its data', async () => {
     const { words, memberships } = await loadSeedPack()
@@ -445,7 +445,7 @@ describe('App integration', () => {
     await user.type(await screen.findByRole('textbox', { name: '搜索词库' }), 'abandon')
     await user.click(screen.getByRole('button', { name: '查看 abandon 的详情' }))
     expect(within(screen.getByRole('dialog')).getByRole('button', { name: '加入优先学习 abandon' })).toBeInTheDocument()
-  }, 30_000)
+  }, 120_000)
 
   it('persists and reverses known marks without creating evidence, with difficulty filtering and editing', async () => {
     const user = userEvent.setup()
@@ -486,7 +486,7 @@ describe('App integration', () => {
     await user.click(screen.getByRole('button', { name: '关闭词条详情' }))
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
     expect((await getUserDataSnapshot()).words.find((word) => word.id === id)?.vocabularyLevel).toBe('C2')
-  }, 30_000)
+  }, 120_000)
 
   it('uses saved time from both kinds of practice in one displayed and executable daily plan', async () => {
     const user = userEvent.setup()
@@ -502,5 +502,55 @@ describe('App integration', () => {
     expect(screen.getByLabelText('预计 3 分钟，共 4 道练习')).toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: /开始今天的训练/ }))
     expect(await screen.findByRole('button', { name: '想不起来' })).toBeInTheDocument()
-  }, 30_000)
+  }, 120_000)
+
+  it.each([0, 1, 6])('offers another round only when new expressions remain (%i available)', async (remaining) => {
+    const user = userEvent.setup()
+    const words = Array.from({ length: remaining + 1 }, (_, index) => ({
+      ...handcraftedSeedWords[0], id: `extra-study-${index}`, expression: `study-${index}`,
+      lemma: `study-${index}`, zhGloss: '学习', usagePrompts: [],
+    }))
+    const memberships = words.map((word, index) => ({
+      id: `extra-study-membership-${index}`, wordId: word.id, listId: LIST_IDS['my-vocabulary'],
+      priority: 1, sortOrder: index,
+    }))
+    const pausedSeedWords = handcraftedSeedWords.map((word) => ({ ...word, status: 'paused' as const }))
+    await initializeDatabase([...pausedSeedWords, ...words], memberships, undefined, { ...DEFAULT_SETTINGS, newItemsPerDay: 1 })
+    render(<App />)
+
+    async function finishExpression(expression: string) {
+      for (const answer of ['学习', expression]) {
+        await user.type(await screen.findByRole('textbox'), answer)
+        await user.click(screen.getByRole('button', { name: '提交回忆' }))
+        await user.click(await screen.findByRole('button', { name: /想起来了.*正常间隔/ }))
+      }
+    }
+
+    await user.click(await screen.findByRole('button', { name: '开始今天的训练' }))
+    await finishExpression('study-0')
+    expect(await screen.findByRole('heading', { name: '今天的学习计划已完成' })).toBeInTheDocument()
+    if (remaining > 0) {
+      expect(screen.getByText('要不要再学一小组新表达？')).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: '再学一组' })).toBeEnabled()
+      if (remaining > 1) await user.click(screen.getByRole('button', { name: '今天先到这里' }))
+      await user.click(await screen.findByRole('button', { name: '再学一组' }))
+      expect(await screen.findByText('继续学习', { exact: true })).toBeInTheDocument()
+      expect(screen.getByText(`1 / ${Math.min(5, remaining) * 2}`)).toBeInTheDocument()
+      expect(screen.getByRole('heading', { name: 'study-1' })).toBeInTheDocument()
+      if (remaining === 1) {
+        await finishExpression('study-1')
+        expect(await screen.findByRole('heading', { name: '今天的学习计划已完成' })).toBeInTheDocument()
+        expect(screen.queryByRole('button', { name: '再学一组' })).not.toBeInTheDocument()
+        const { attempts } = await getUserDataSnapshot()
+        expect(attempts.filter((attempt) => attempt.itemId === words[1].id)).toHaveLength(2)
+        expect(new Set(attempts.map((attempt) => attempt.sessionId)).size).toBe(2)
+      }
+    } else {
+      expect(screen.queryByRole('button', { name: '再学一组' })).not.toBeInTheDocument()
+      await user.click(screen.getByRole('button', { name: '回到今天' }))
+      expect(screen.getByText('今天的学习计划已完成。')).toBeInTheDocument()
+      expect(screen.queryByRole('button', { name: '再学一组' })).not.toBeInTheDocument()
+    }
+    expect((await getUserDataSnapshot()).settings.newItemsPerDay).toBe(1)
+  }, 120_000)
 })

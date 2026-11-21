@@ -66,6 +66,10 @@ function normalizeEnglishSurface(value: string) {
   return value
     .normalize('NFKC')
     .toLocaleLowerCase('en')
+    .replace(
+      /^[\s('"‘“]*([a-f])\s*([+−–-])[\s)'"’”.!?]*$/,
+      (_, letter, sign) => `${letter} ${sign === '+' ? 'plus' : 'minus'}`,
+    )
     .replace(/[’‘`]/g, "'")
     .replace(/[.'"]/g, '')
     .replace(/[-–—_/\\]/g, ' ')
@@ -190,6 +194,7 @@ function matchEnglish(answer: string, candidates: string[]): EnglishMatch | unde
   let closest: EnglishMatch | undefined
   for (const candidate of candidates) {
     const normalizedCandidate = normalizeEnglish(candidate)
+    if (/^[a-f] (plus|minus)$/.test(normalizedCandidate)) continue
     if (Math.abs(normalizedCandidate.length - normalized.length) > 1) continue
     const distance = levenshtein(normalized, normalizedCandidate)
     if (distance <= 1 && (closest?.distance === undefined || distance < closest.distance)) {

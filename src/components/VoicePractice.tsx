@@ -3,7 +3,7 @@ import type { SpeechAccent, SystemListSlug, VocabularyItem } from '../domain/typ
 import { hasDeepseekApiKey } from '../lib/llm/config'
 import { useVoiceConfig } from '../lib/voice/config'
 import { generateVoiceFeedback, type VoiceFeedback } from '../lib/voice/feedback'
-import { VOICE_SCENARIOS } from '../lib/voice/scenarios'
+import { VOICE_SCENARIOS, voiceScenarioForGoal } from '../lib/voice/scenarios'
 import { EMPTY_VOICE_SNAPSHOT, VoiceSession, type VoiceSnapshot } from '../lib/voice/session'
 import { Icon } from './Icon'
 import { VoicePreparation, DEFAULT_VOICE_SELECTION, type VoicePreparationProps } from './VoicePreparation'
@@ -197,7 +197,7 @@ function RealtimeVoicePractice({ items, accent, selection, onSelection, onBack, 
 
 export function VoicePractice({ items, accent, onRequestLogin, onSaveExpression, learningGoal, trial }: { items: VocabularyItem[]; accent: SpeechAccent; onRequestLogin?: () => void; onSaveExpression?: SaveVoiceExpression; learningGoal?: SystemListSlug; trial?: boolean }) {
   const [mode, setMode] = useState<'realtime' | 'messages' | null>(null)
-  const [selection, setSelection] = useState(() => ({ ...DEFAULT_VOICE_SELECTION, scenario: learningGoal === 'accounting' ? 'finance' as const : learningGoal ?? DEFAULT_VOICE_SELECTION.scenario }))
+  const [selection, setSelection] = useState(() => ({ ...DEFAULT_VOICE_SELECTION, scenario: voiceScenarioForGoal(learningGoal) }))
   const shared = { items, accent, selection, onSelection: setSelection, onBack: () => setMode(null), onRequestLogin, onSaveExpression }
   if (mode === 'realtime') return <RealtimeVoicePractice {...shared} />
   if (mode === 'messages') return <VoiceMessages {...shared} />

@@ -85,7 +85,10 @@ interface ActiveSession {
   id: string
   plan: DailyPlan
   firstLesson?: boolean
+  newItemTarget?: number
 }
+
+const EXTRA_NEW_ITEM_COUNT = 5
 
 const AddView = lazy(() => import('./components/AddView').then(module => ({ default: module.AddView })))
 const LibraryView = lazy(() => import('./components/LibraryView').then(module => ({ default: module.LibraryView })))
@@ -216,6 +219,13 @@ function App({ onReady, onBusyChange, onRequestLogin, initialTab = 'today', onTa
   // Delayed recall uses a sliding seven-day window, including within-day boundaries.
   const stats = useMemo(() => deriveLearningStats({ items, tracks, attempts, timeEntries, now }), [items, tracks, attempts, timeEntries, now])
   const dailyPlan = useMemo(() => buildDailyPlan({ settings, items, tracks, attempts, timeEntries, now }), [settings, items, tracks, attempts, timeEntries, now])
+  const dailyPlanComplete = dailyPlan.totalTasks === 0 && stats.practicedItems > 0
+  const extraStudy = useMemo(() => {
+    if (!dailyPlanComplete) return undefined
+    const newItemTarget = dailyPlan.introducedToday + EXTRA_NEW_ITEM_COUNT
+    const plan = buildDailyPlan({ settings, items, tracks, attempts, timeEntries, now, newItemTarget })
+    return plan.newItemCount > 0 ? { plan, newItemTarget } : undefined
+  }, [dailyPlanComplete, dailyPlan.introducedToday, settings, items, tracks, attempts, timeEntries, now])
   const difficulty = useMemo(() => getStudyDifficulty(settings, items, attempts, now), [settings, items, attempts, now])
 
   const learningTrackSnapshots = useMemo(() => {
@@ -253,7 +263,7 @@ function App({ onReady, onBusyChange, onRequestLogin, initialTab = 'today', onTa
       .slice(0, 6)
   }, [attempts, itemMap, stats.evidenceByItemId])
 
-  function startSession() {
+  function startSession(plan = dailyPlan, newItemTarget?: number) {
     if (onRequestLogin) { onRequestLogin(); return }
     const current = new Date()
     if (current.toDateString() !== now.toDateString()) {
@@ -261,8 +271,10 @@ function App({ onReady, onBusyChange, onRequestLogin, initialTab = 'today', onTa
       return
     }
     sessionDifficulty.current = difficulty.level
-    setSession({ id: makeId('session'), plan: dailyPlan })
+    setSession({ id: makeId('session'), plan, newItemTarget })
   }
+
+  const onStartExtra = extraStudy ? () => startSession(extraStudy.plan, extraStudy.newItemTarget) : undefined
 
   async function rebuildSession() {
     try {
@@ -403,7 +415,7 @@ function App({ onReady, onBusyChange, onRequestLogin, initialTab = 'today', onTa
     const snapshot = await getUserDataSnapshot()
     const current = new Date()
     const nextDifficulty = getStudyDifficulty(snapshot.settings, snapshot.vocabulary, snapshot.attempts, current)
-    const plan = (session?.firstLesson ? buildFirstLessonPlan : buildDailyPlan)({ settings: snapshot.settings, items: snapshot.vocabulary, tracks: snapshot.tracks, attempts: snapshot.attempts, timeEntries: snapshot.timeEntries, now: current })
+    const plan = (session?.firstLesson ? buildFirstLessonPlan : buildDailyPlan)({ settings: snapshot.settings, items: snapshot.vocabulary, tracks: snapshot.tracks, attempts: snapshot.attempts, timeEntries: snapshot.timeEntries, now: current, newItemTarget: session?.newItemTarget })
     const next = refreshPendingNewTasks(pending, plan.tasks, snapshot.vocabulary, started)
     sessionDifficulty.current = nextDifficulty.level
     return next
@@ -720,7 +732,8 @@ function App({ onReady, onBusyChange, onRequestLogin, initialTab = 'today', onTa
             stats={stats}
             mapProgress={mapProgress}
             now={now}
-            onStart={startSession}
+            onStart={() => startSession()}
+            onStartExtra={session ? undefined : onStartExtra}
             recentWords={recentWords}
             tracks={learningTrackSnapshots}
           />
@@ -764,13 +777,15 @@ function App({ onReady, onBusyChange, onRequestLogin, initialTab = 'today', onTa
           initialTasks={session.plan.tasks}
           items={items}
           key={session.id}
-          mode="core"
+          mode={session.newItemTarget === undefined ? 'core' : 'extension'}
           sessionId={session.id}
           timeEntries={timeEntries}
           onSaveTime={saveStudyTime}
           onDayChange={() => rebuildSession()}
           canVerifySentence={hasDeepseekApiKey()}
           learningStats={stats}
+          dailyPlanComplete={dailyPlanComplete}
+          onStartExtra={onStartExtra}
           onExit={() => {
             setSession(null)
             setTab('today')

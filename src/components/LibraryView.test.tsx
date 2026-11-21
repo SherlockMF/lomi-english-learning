@@ -91,6 +91,24 @@ it('opens the full entry even when search matches only one sense', async () => {
   expect(within(screen.getByRole('dialog')).getByRole('button', { name: '选择义项 1：利息' })).toBeInTheDocument()
 })
 
+it('filters words by installed expansion lists', async () => {
+  const user = userEvent.setup()
+  const housingWord: VocabularyItem = {
+    ...sense, id: 'housing-lease', expression: 'lease', lemma: 'lease', senseKey: 'housing-contract',
+    zhGloss: '租约', listSlugs: ['housing'], category: 'housing',
+  }
+  render(<LibraryView {...props([sense, housingWord])} />)
+
+  const categories = screen.getByRole('combobox', { name: '扩展词库分类' })
+  expect(within(categories).queryByRole('option', { name: '餐饮美食' })).not.toBeInTheDocument()
+  await user.selectOptions(categories, 'housing')
+  expect(screen.getByRole('heading', { name: 'lease' })).toBeInTheDocument()
+  expect(screen.queryByRole('heading', { name: 'interest' })).not.toBeInTheDocument()
+  await user.click(screen.getByRole('button', { name: '金融英语' }))
+  expect(categories).toHaveValue('all')
+  expect(screen.getByRole('heading', { name: 'interest' })).toBeInTheDocument()
+})
+
 it('closes with Escape, restores focus and releases the body scroll lock', async () => {
   const user = userEvent.setup()
   render(<LibraryView {...props([sense])} />)

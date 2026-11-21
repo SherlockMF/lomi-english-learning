@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
-import { VOCABULARY_LEVELS, type SystemListSlug, type VocabularyItem, type VocabularyLevel } from '../domain/types'
+import { SYSTEM_LIST_ORDER, VOCABULARY_LEVELS, type SystemListSlug, type VocabularyItem, type VocabularyLevel } from '../domain/types'
 import { getVocabularyDifficulty, vocabularyLevelLabels } from '../lib/studyDifficulty'
 import { type EditCategory } from '../lib/listMembership'
 import { categoryLabels } from '../lib/presentation'
@@ -42,7 +42,7 @@ const filters: { id: LibraryFilter; label: string }[] = [
   { id: 'my-vocabulary', label: '优先学习' },
 ]
 
-const systemCategories: SystemListSlug[] = ['daily', 'business', 'finance', 'accounting']
+const expansionCategories = SYSTEM_LIST_ORDER.filter((slug) => !filters.some((item) => item.id === slug))
 
 export function LibraryView({
   items,
@@ -66,14 +66,20 @@ export function LibraryView({
   const entryTrigger = useRef<HTMLElement | null>(null)
   const entryFallback = useRef<HTMLElement | null>(null)
   const searchInput = useRef<HTMLInputElement | null>(null)
+  const availableExpansionCategories = useMemo(() => {
+    const availableLists = new Set(items.flatMap((item) => item.listSlugs))
+    return expansionCategories.filter((slug) => availableLists.has(slug))
+  }, [items])
+  const isExpansionFilter = availableExpansionCategories.some((slug) => slug === filter)
+  const activeFilter = isExpansionFilter || filters.some((item) => item.id === filter) ? filter : 'all'
 
-  useEffect(() => setVisibleCount(24), [query, filter, levelFilter, knowledgeFilter])
+  useEffect(() => setVisibleCount(24), [query, activeFilter, levelFilter, knowledgeFilter])
 
   const filtered = useMemo(() => {
     const cleaned = query.trim().toLocaleLowerCase()
     return items
       .filter((item) => {
-        if (filter !== 'all' && !item.listSlugs.includes(filter)) return false
+        if (activeFilter !== 'all' && !item.listSlugs.includes(activeFilter)) return false
         if (levelFilter !== 'all' && getVocabularyDifficulty(item).level !== levelFilter) return false
         if (knowledgeFilter === 'known' && !item.knownAt || knowledgeFilter === 'learning' && item.knownAt) return false
         if (!cleaned) return true
@@ -87,7 +93,7 @@ export function LibraryView({
         }
         return a.expression.localeCompare(b.expression) || a.id.localeCompare(b.id)
       })
-  }, [filter, items, query, levelFilter, knowledgeFilter])
+  }, [activeFilter, items, query, levelFilter, knowledgeFilter])
   const entries = useMemo(() => groupWordsByExpression(filtered), [filtered])
   const completeEntries = useMemo(() => new Map(groupWordsByExpression(items).map((entry) => [entry.key, entry])), [items])
   const selectedItem = items.find((item) => item.id === selectedItemId)
@@ -131,7 +137,7 @@ export function LibraryView({
         </div>
         <div className="filter-pills">
           {filters.map((item) => (
-            <button className={filter === item.id ? 'active' : ''} key={item.id} onClick={() => setFilter(item.id)} type="button">
+            <button className={activeFilter === item.id ? 'active' : ''} key={item.id} onClick={() => setFilter(item.id)} type="button">
               {item.label}
             </button>
           ))}
@@ -139,6 +145,14 @@ export function LibraryView({
       </section>
 
       <div className="difficulty-filters">
+        {availableExpansionCategories.length > 0 ? (
+          <label>扩展词库分类
+            <select value={isExpansionFilter ? activeFilter : 'all'} onChange={(event) => setFilter(event.target.value as LibraryFilter)}>
+              <option value="all">选择分类</option>
+              {availableExpansionCategories.map((slug) => <option key={slug} value={slug}>{categoryLabels[slug]}</option>)}
+            </select>
+          </label>
+        ) : null}
         <label>词汇难度 <select aria-label="筛选词汇难度" value={levelFilter} onChange={(event) => setLevelFilter(event.target.value as VocabularyLevel | 'all')}><option value="all">全部等级</option>{VOCABULARY_LEVELS.map((level) => <option key={level} value={level}>{vocabularyLevelLabels[level]}</option>)}</select></label>
         <label>学习状态 <select aria-label="筛选学习状态" value={knowledgeFilter} onChange={(event) => setKnowledgeFilter(event.target.value)}><option value="all">全部状态</option><option value="learning">待学习</option><option value="known">已会</option></select></label>
       </div>
@@ -276,7 +290,7 @@ function EditWordDialog({ item, onClose, onSave }: EditWordDialogProps) {
           </div>
           <label><span>常用搭配</span><input onChange={(event) => setCollocations(event.target.value)} value={collocations} /></label>
           <label><span>使用场景</span><select onChange={(event) => setCategory(event.target.value as EditCategory)} value={category}>
-            {systemCategories.map((value) => <option key={value} value={value}>{categoryLabels[value]}</option>)}
+            {SYSTEM_LIST_ORDER.map((value) => <option key={value} value={value}>{categoryLabels[value]}</option>)}
             <option value="other">{categoryLabels.other}</option>
           </select></label>
           {category === 'other' && (
