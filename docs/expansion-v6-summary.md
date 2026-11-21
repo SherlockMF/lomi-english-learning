@@ -37,6 +37,20 @@
 - `src/data/seedContentRevision.ts`：新账号使用 6.0.0。发布前已存在的账号沿用 5.3.2，首次打开时显示 V6 更新提示，可在「管理学习词库」保存选项后按方向加入 V6 义项。
 - `data/dictionary-senses/report.json`：新增 29,883 条 not-found unresolved 记录，词典覆盖账目与全量词库平衡（37,415 个唯一表达）。后续可对 v6 表达跑词典义项 enrich 管线。
 
+## V5.2 例句全量重写（2026-11-22）
+
+用户反馈 v5.2 老库例句"太呆"（如 underwater 词条配 "The terms are underwater" 模板句）。骨架聚类审计确认 **14,722 条例句中 93% 来自 161 个模板家族**（最大家族 1,486 句），946 条中文例句含"的的"类错字或直译。
+
+重写流水线（`scripts/splitV52Rewrite.mjs` → 22 个工作文件 → 11 组重写 agent → `scripts/mergeV52Rewrite.mjs` 回写 trusted pack → `buildBundledSeedPack` 重建）：
+
+- 7,361 词 × 2 句全量重写为自然双语例句（10–18 词、含目标词或其屈折、中文「」标注）
+- **680 处 zhGloss 义项修复**——ECDICT 批量词选义错误率远超预期（如 underwater 在水中的→资不抵债的、capital 首都→资金、match 比赛→火柴、check 检查→支票、traveller 旅行商→旅行者、missile 发射物→导弹、MS 美国微软公司→女士），旧译保留为 acceptedZhAnswers 备选
+- 60+ 处 enDefinition 对齐（含乱码定义 "an auditor of assistant chief"、错挂的棒球/桥牌/保税仓库义）
+- usagePrompts（cloze/sentence）随新例句同步再生
+- 回归审计：模板家族 161 → **0**（v5.2 与 v6 双双 0%），zh 异常 946 → **0**
+
+工具链：`scripts/auditTemplateExamples.mjs`（v5.2）与 `scripts/auditV6TemplateExamples.mjs`（v6）可随时对新词跑模板回归。
+
 ## 已知权衡
 
 - bundledSeedWords.json 约 58 MB（未压缩）。新账号首开一次性写入完整种子，旧账号更新时只写入选中方向。这次发布沿用冻结例句，正在复核的改写另行发版。

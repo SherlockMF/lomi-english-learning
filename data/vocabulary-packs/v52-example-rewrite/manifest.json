@@ -1,0 +1,117 @@
+{
+  "generatedAt": "2026-11-21T14:48:28.122Z",
+  "source": "trusted_v5_2_vocabulary_pack.json",
+  "totalWords": 7361,
+  "files": [
+    {
+      "name": "work-01-accounting.json",
+      "category": "accounting",
+      "words": 380
+    },
+    {
+      "name": "work-02-accounting.json",
+      "category": "accounting",
+      "words": 380
+    },
+    {
+      "name": "work-03-accounting.json",
+      "category": "accounting",
+      "words": 50
+    },
+    {
+      "name": "work-04-business.json",
+      "category": "business",
+      "words": 380
+    },
+    {
+      "name": "work-05-business.json",
+      "category": "business",
+      "words": 380
+    },
+    {
+      "name": "work-06-business.json",
+      "category": "business",
+      "words": 380
+    },
+    {
+      "name": "work-07-business.json",
+      "category": "business",
+      "words": 380
+    },
+    {
+      "name": "work-08-business.json",
+      "category": "business",
+      "words": 380
+    },
+    {
+      "name": "work-09-business.json",
+      "category": "business",
+      "words": 380
+    },
+    {
+      "name": "work-10-business.json",
+      "category": "business",
+      "words": 14
+    },
+    {
+      "name": "work-11-daily.json",
+      "category": "daily",
+      "words": 380
+    },
+    {
+      "name": "work-12-daily.json",
+      "category": "daily",
+      "words": 380
+    },
+    {
+      "name": "work-13-daily.json",
+      "category": "daily",
+      "words": 380
+    },
+    {
+      "name": "work-14-daily.json",
+      "category": "daily",
+      "words": 380
+    },
+    {
+      "name": "work-15-daily.json",
+      "category": "daily",
+      "words": 380
+    },
+    {
+      "name": "work-16-daily.json",
+      "category": "daily",
+      "words": 380
+    },
+    {
+      "name": "work-17-daily.json",
+      "category": "daily",
+      "words": 380
+    },
+    {
+      "name": "work-18-daily.json",
+      "category": "daily",
+      "words": 317
+    },
+    {
+      "name": "work-19-finance.json",
+      "category": "finance",
+      "words": 380
+    },
+    {
+      "name": "work-20-finance.json",
+      "category": "finance",
+      "words": 380
+    },
+    {
+      "name": "work-21-finance.json",
+      "category": "finance",
+      "words": 380
+    },
+    {
+      "name": "work-22-finance.json",
+      "category": "finance",
+      "words": 140
+    }
+  ]
+}

@@ -86,8 +86,8 @@ describe('vocabulary V5 trusted library', () => {
     expect(bundledSeedWords.find((item) => item.expression === 'institutional investor')?.collocations?.join(' ')).not.toMatch(
       /hedge the institutional investor|price the institutional investor/i,
     )
-    expect(bundledSeedWords.find((item) => item.expression === 'safe deposit box')?.examples?.[0]?.en).toMatch(
-      /inspect|lease|secure|visit|Access|Security|expire/i,
+    expect(bundledSeedWords.find((item) => item.expression === 'safe deposit box')?.examples?.map((ex) => ex.en).join(' ')).toMatch(
+      /vault|Rent a safe deposit box|war medals/i,
     )
     expect(bundledSeedWords.find((item) => item.expression === 'safe deposit box')?.examples?.[0]?.en).not.toMatch(
       /Customs released goods/i,
@@ -254,7 +254,7 @@ describe('vocabulary V5 trusted library', () => {
       expect(item, expression).toBeTruthy()
       const joined = (item?.examples || []).map((ex) => ex.en).join(' || ')
       expect(joined, expression).not.toMatch(/Pair the .+ with a collocation|weekly drill recycles the /i)
-      expect(joined, expression).not.toMatch(new RegExp(`\\bthe ${expression}\\b`, 'i'))
+      expect(joined, expression).not.toMatch(new RegExp(`\\bthe ${expression}\\b(?!\\s+[a-z])`, 'i'))
       expect(joined, expression).toMatch(new RegExp(expression, 'i'))
     }
 
@@ -311,8 +311,8 @@ describe('vocabulary V5 trusted library', () => {
     expect(single?.zhGloss).toMatch(/单身|单一/)
 
     const herself = seedWords.find((item) => item.expression === 'herself')
-    expect(herself?.examples?.some((ex) => /^She completed/i.test(ex.en))).toBe(true)
-    expect(herself?.examples?.some((ex) => /^I completed.+herself/i.test(ex.en))).toBe(false)
+    expect(herself?.examples?.some((ex) => /by herself/i.test(ex.en))).toBe(true)
+    expect(herself?.examples?.some((ex) => /caught herself/i.test(ex.en))).toBe(true)
 
     const plant = seedWords.find((item) => item.id === 'core-baf0bf92eb7915')
     expect(plant?.zhGloss).toMatch(/植物/)
