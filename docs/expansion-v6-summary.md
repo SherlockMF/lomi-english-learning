@@ -1,0 +1,48 @@
+# Expansion V6 词库扩充汇总
+
+2026-11-20/21 完成。面向海外中国大学生的词库大扩充：在原 7,263 条 bundled 种子词基础上新增 **29,959 条**，应用种子词库总量达到 **37,222 条**（37,462 含 240 条 handcrafted，词典义项另计）。
+
+## 覆盖分类（26 个系统词单）
+
+原有 4 分类保留并扩充：daily（+2,072）、business（+1,021）、finance（+1,022）、accounting（+769）。
+
+新增通识场景 14 类：campus 1,989 · housing 1,215 · health 1,238 · money 979 · career 1,475 · food 987 · travel 991 · government 982 · emergency 748 · shopping 993 · social 1,240 · entertainment 1,008 · digital 1,002 · communication 788。
+
+新增专业选修 8 类：cs 1,712 · economics 1,061 · math 928 · engineering 1,331 · medicine 1,342 · law 1,064 · psychology 1,066 · marketing 936。
+
+## 目录结构
+
+- `data/vocabulary-packs/expansion-v6/chunks/` — 236 个生成 chunk（每类按子主题拆分，约 125 词/chunk），生成规范见 `expansion-v6/GENERATION_GUIDE.md`
+- `data/vocabulary-packs/expansion-v6/packs/` — 26 个按分类合并的 pack（words + memberships，membership 带 subcategory）
+- `data/vocabulary-packs/expansion-v6/validation/latest-validation.json` — 机械校验报告
+- `scripts/validateExpansionPack.mjs` — 机械校验（schema/例句/搭配/id 格式/查重），npm run expansion:validate
+- `scripts/buildExpansionPack.mjs` — chunk → pack 合并，npm run expansion:build
+- `scripts/buildBundledExpansionPack.mjs` — pack → bundled seed 合并（幂等，可重复运行），npm run expansion:bundled
+
+## 质量关卡
+
+1. **机械校验 0 错误**：字段完整、每词恰好 2 条中英例句（中文「」标注目标词）、3 条搭配、id/senseKey 全局唯一（v6-<category>-<slug>-<8hex> / v6:<category>-<hex>）、词内与跨 chunk 查重、对 v5.2 基础库查重。
+2. **同义仲裁**：42 条与 v5.2 同表达的词条逐一比对释义——32 条为合法"同词不同义"（hook 钩→文章引子、abstract 抽象的→摘要、text 文本→发短信等）保留；10 条同义重复（anxious/jealous/stress/confidence/shortly/constantly/shower/dry/block/sticky）删除。
+3. **跨分类查重**：唯一跨分类重复为 open house（campus 开放日 / housing 看房开放日），义项不同，双保留。全局 id/senseKey 无冲突。
+4. **语义复核（7 个分组 reviewer agent，26 分类全覆盖）**：逐文件通读全部 29,959 词，校核义项正确性、定义一致性、例句自然度、词性、搭配、CEFR，以及专业术语与中国教材/行业惯例译名的对齐。累计修复约 320 处（生造译名、错译、翻译腔、词性错标、英美语境混用、a/an 冠词、音译错误等），并在约 60 处 acceptedZhAnswers 中补充教材标准译名（如转动惯量、纯滚动、动能定理、庞纳特方格、辩诉交易、经典条件反射）。无词条删除。
+5. **遗留质量禁令兼容**：15+6 条 v6 定义改写以通过 v5.2 时代的模板定义禁令（"sense of…" / " relating to " 句式）。
+
+## 应用接入
+
+- `src/domain/types.ts`：SystemListSlug 扩展至 26 个系统分类；DEFAULT_SETTINGS.contentMix 全键；DEFAULT_ACTIVE_CATEGORIES 仍为原 4 类（老用户行为不变）。
+- `src/data/vocabularyLists.ts`：27 个词单（26 系统 + my-vocabulary）。
+- `src/lib/scheduler.ts`：ORDINARY_CATEGORY_WEIGHTS 全分类权重；新词只在 activeCategories 内轮转。
+- `src/components/OnboardingDialog.tsx`：onboarding 场景多选（可多选激活分类，主场景决定第一课）。
+- `public/data/bundledSeedWords.json` + `bundledSeedMemberships.json`：合并后的 bundled 种子（v6 词已生成 cloze/sentence usagePrompts）。
+- `src/data/seedContentRevision.ts`：SEED_CONTENT_REVISION = '6.0.0'（老用户启动时自动补种新词并保留学习进度）。
+- `data/dictionary-senses/report.json`：新增 29,883 条 not-found unresolved 记录，词典覆盖账目与全量词库平衡（37,415 个唯一表达）。后续可对 v6 表达跑词典义项 enrich 管线。
+
+## 已知权衡
+
+- bundledSeedWords.json 约 58MB（未压缩）；首次加载与 revision 刷新一次性写入 37k 词条 + ~75k FSRS tracks，耗时数秒。后续可按分类懒加载。
+- v6 词条 vocabularyLevel 覆盖率约 13%（生成时"有把握才标"）；未标注词条沿用应用内 lexicon/profile 估算（默认 B2）。
+- 词典义项 enrich（wordSenses）尚未覆盖 v6 表达（unresolved 记账已就位）。
+
+## 测试
+
+`npm test` 全绿（87 文件 / 641 测试）。`npm run lint` 0 错误。

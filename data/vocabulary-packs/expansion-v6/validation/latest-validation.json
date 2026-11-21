@@ -1,0 +1,1706 @@
+{
+  "generatedAt": "2026-11-21T10:41:28.816Z",
+  "chunks": [
+    {
+      "file": "accounting-01-job-process-and-activity-costing.json",
+      "words": 128,
+      "category": "accounting",
+      "subcategory": "job-process-and-activity-costing"
+    },
+    {
+      "file": "accounting-02-budgets-standard-costs-and-variances.json",
+      "words": 128,
+      "category": "accounting",
+      "subcategory": "budgets-standard-costs-and-variances"
+    },
+    {
+      "file": "accounting-03-relevant-costs-and-segment-performance.json",
+      "words": 125,
+      "category": "accounting",
+      "subcategory": "relevant-costs-and-segment-performance"
+    },
+    {
+      "file": "accounting-04-statement-analysis-and-earnings-quality.json",
+      "words": 133,
+      "category": "accounting",
+      "subcategory": "statement-analysis-and-earnings-quality"
+    },
+    {
+      "file": "accounting-05-cash-flow-presentation-and-reconciliation.json",
+      "words": 127,
+      "category": "accounting",
+      "subcategory": "cash-flow-presentation-and-reconciliation"
+    },
+    {
+      "file": "accounting-06-reporting-recognition-and-disclosures.json",
+      "words": 128,
+      "category": "accounting",
+      "subcategory": "reporting-recognition-and-disclosures"
+    },
+    {
+      "file": "business-01-student-entrepreneurship-and-venture-validation.json",
+      "words": 127,
+      "category": "business",
+      "subcategory": "student-entrepreneurship-and-venture-validation"
+    },
+    {
+      "file": "business-02-business-models-pricing-and-unit-economics.json",
+      "words": 133,
+      "category": "business",
+      "subcategory": "business-models-pricing-and-unit-economics"
+    },
+    {
+      "file": "business-03-stalls-inventory-and-fulfilment.json",
+      "words": 125,
+      "category": "business",
+      "subcategory": "stalls-inventory-and-fulfilment"
+    },
+    {
+      "file": "business-04-part-time-venture-staffing-and-workflow.json",
+      "words": 126,
+      "category": "business",
+      "subcategory": "part-time-venture-staffing-and-workflow"
+    },
+    {
+      "file": "business-05-small-enterprise-partnerships-and-service-agreements.json",
+      "words": 125,
+      "category": "business",
+      "subcategory": "small-enterprise-partnerships-and-service-agreements"
+    },
+    {
+      "file": "business-06-case-method-and-decision-analysis.json",
+      "words": 126,
+      "category": "business",
+      "subcategory": "case-method-and-decision-analysis"
+    },
+    {
+      "file": "business-07-organisation-and-strategy.json",
+      "words": 134,
+      "category": "business",
+      "subcategory": "organisation-and-strategy"
+    },
+    {
+      "file": "business-08-student-consulting-and-project-delivery.json",
+      "words": 125,
+      "category": "business",
+      "subcategory": "student-consulting-and-project-delivery"
+    },
+    {
+      "file": "campus-01-course-registration.json",
+      "words": 127,
+      "category": "campus",
+      "subcategory": "course-registration"
+    },
+    {
+      "file": "campus-02-lecture-classroom.json",
+      "words": 125,
+      "category": "campus",
+      "subcategory": "lecture-classroom"
+    },
+    {
+      "file": "campus-03-seminar-discussion.json",
+      "words": 113,
+      "category": "campus",
+      "subcategory": "seminar-discussion"
+    },
+    {
+      "file": "campus-04-assignments-homework.json",
+      "words": 125,
+      "category": "campus",
+      "subcategory": "assignments-and-homework"
+    },
+    {
+      "file": "campus-05-exams-assessment.json",
+      "words": 125,
+      "category": "campus",
+      "subcategory": "exams-and-assessment"
+    },
+    {
+      "file": "campus-06-academic-writing.json",
+      "words": 125,
+      "category": "campus",
+      "subcategory": "academic-writing"
+    },
+    {
+      "file": "campus-07-citations-research.json",
+      "words": 125,
+      "category": "campus",
+      "subcategory": "citations-and-research"
+    },
+    {
+      "file": "campus-08-degrees-requirements.json",
+      "words": 125,
+      "category": "campus",
+      "subcategory": "degrees-and-requirements"
+    },
+    {
+      "file": "campus-09-registrar-administration.json",
+      "words": 125,
+      "category": "campus",
+      "subcategory": "registrar-and-administration"
+    },
+    {
+      "file": "campus-10-library-resources.json",
+      "words": 125,
+      "category": "campus",
+      "subcategory": "library-resources"
+    },
+    {
+      "file": "campus-11-professors-staff.json",
+      "words": 125,
+      "category": "campus",
+      "subcategory": "professors-and-staff"
+    },
+    {
+      "file": "campus-12-grades-gpa.json",
+      "words": 125,
+      "category": "campus",
+      "subcategory": "grades-and-gpa"
+    },
+    {
+      "file": "campus-13-student-services.json",
+      "words": 123,
+      "category": "campus",
+      "subcategory": "student-services"
+    },
+    {
+      "file": "campus-14-clubs-organizations.json",
+      "words": 125,
+      "category": "campus",
+      "subcategory": "clubs-and-organizations"
+    },
+    {
+      "file": "campus-15-international-students.json",
+      "words": 126,
+      "category": "campus",
+      "subcategory": "international-students"
+    },
+    {
+      "file": "campus-16-online-learning.json",
+      "words": 125,
+      "category": "campus",
+      "subcategory": "online-learning"
+    },
+    {
+      "file": "career-01-job-search.json",
+      "words": 125,
+      "category": "career",
+      "subcategory": "job-search"
+    },
+    {
+      "file": "career-02-job-listings-and-requirements.json",
+      "words": 125,
+      "category": "career",
+      "subcategory": "job-listings-and-requirements"
+    },
+    {
+      "file": "career-03-resumes-and-cvs.json",
+      "words": 125,
+      "category": "career",
+      "subcategory": "resumes-and-cvs"
+    },
+    {
+      "file": "career-04-cover-letters-and-portfolios.json",
+      "words": 116,
+      "category": "career",
+      "subcategory": "cover-letters-and-portfolios"
+    },
+    {
+      "file": "career-05-application-submission-and-tracking.json",
+      "words": 125,
+      "category": "career",
+      "subcategory": "application-submission-and-tracking"
+    },
+    {
+      "file": "career-06-recruiter-communication.json",
+      "words": 125,
+      "category": "career",
+      "subcategory": "recruiter-communication"
+    },
+    {
+      "file": "career-07-general-and-behavioral-interviews.json",
+      "words": 125,
+      "category": "career",
+      "subcategory": "general-and-behavioral-interviews"
+    },
+    {
+      "file": "career-08-technical-assessments-and-presentations.json",
+      "words": 118,
+      "category": "career",
+      "subcategory": "technical-assessments-and-presentations"
+    },
+    {
+      "file": "career-09-offers-and-negotiation.json",
+      "words": 125,
+      "category": "career",
+      "subcategory": "offers-and-negotiation"
+    },
+    {
+      "file": "career-10-employment-paperwork-and-work-authorization.json",
+      "words": 125,
+      "category": "career",
+      "subcategory": "employment-paperwork-and-work-authorization"
+    },
+    {
+      "file": "career-11-team-communication-and-workplace-routines.json",
+      "words": 116,
+      "category": "career",
+      "subcategory": "team-communication-and-workplace-routines"
+    },
+    {
+      "file": "career-12-internships-and-graduate-programs.json",
+      "words": 125,
+      "category": "career",
+      "subcategory": "internships-and-graduate-programs"
+    },
+    {
+      "file": "communication-01-requests-favors-and-permission.json",
+      "words": 130,
+      "category": "communication",
+      "subcategory": "requests-favors-and-permission"
+    },
+    {
+      "file": "communication-02-apologies-accountability-and-repair.json",
+      "words": 130,
+      "category": "communication",
+      "subcategory": "apologies-accountability-and-repair"
+    },
+    {
+      "file": "communication-03-complaints-feedback-and-resolution.json",
+      "words": 132,
+      "category": "communication",
+      "subcategory": "complaints-feedback-and-resolution"
+    },
+    {
+      "file": "communication-04-declining-and-setting-boundaries.json",
+      "words": 132,
+      "category": "communication",
+      "subcategory": "declining-and-setting-boundaries"
+    },
+    {
+      "file": "communication-05-negotiating-and-reaching-agreement.json",
+      "words": 132,
+      "category": "communication",
+      "subcategory": "negotiating-and-reaching-agreement"
+    },
+    {
+      "file": "communication-06-interrupting-clarifying-and-rephrasing.json",
+      "words": 132,
+      "category": "communication",
+      "subcategory": "interrupting-clarifying-and-rephrasing"
+    },
+    {
+      "file": "cs-01-programming-and-execution.json",
+      "words": 129,
+      "category": "cs",
+      "subcategory": "programming-and-execution"
+    },
+    {
+      "file": "cs-02-values-types-and-data-representation.json",
+      "words": 135,
+      "category": "cs",
+      "subcategory": "values-types-and-data-representation"
+    },
+    {
+      "file": "cs-03-control-flow-functions-and-modules.json",
+      "words": 131,
+      "category": "cs",
+      "subcategory": "control-flow-functions-and-modules"
+    },
+    {
+      "file": "cs-04-collections-and-data-structures.json",
+      "words": 130,
+      "category": "cs",
+      "subcategory": "collections-and-data-structures"
+    },
+    {
+      "file": "cs-05-algorithms-trees-and-graphs.json",
+      "words": 135,
+      "category": "cs",
+      "subcategory": "algorithms-trees-and-graphs"
+    },
+    {
+      "file": "cs-06-object-oriented-programming-and-design.json",
+      "words": 135,
+      "category": "cs",
+      "subcategory": "object-oriented-programming-and-design"
+    },
+    {
+      "file": "cs-07-relational-databases-and-sql.json",
+      "words": 131,
+      "category": "cs",
+      "subcategory": "relational-databases-and-sql"
+    },
+    {
+      "file": "cs-08-testing-versioning-and-releases.json",
+      "words": 135,
+      "category": "cs",
+      "subcategory": "testing-versioning-and-releases"
+    },
+    {
+      "file": "cs-09-processes-memory-and-concurrency.json",
+      "words": 130,
+      "category": "cs",
+      "subcategory": "processes-memory-and-concurrency"
+    },
+    {
+      "file": "cs-10-networking-and-web-fundamentals.json",
+      "words": 130,
+      "category": "cs",
+      "subcategory": "networking-and-web-fundamentals"
+    },
+    {
+      "file": "cs-11-data-cleaning-and-reshaping.json",
+      "words": 129,
+      "category": "cs",
+      "subcategory": "data-cleaning-and-reshaping"
+    },
+    {
+      "file": "cs-12-machine-learning-and-model-evaluation.json",
+      "words": 131,
+      "category": "cs",
+      "subcategory": "machine-learning-and-model-evaluation"
+    },
+    {
+      "file": "cs-13-visualisation-reproducibility-and-data-ethics.json",
+      "words": 131,
+      "category": "cs",
+      "subcategory": "visualisation-reproducibility-and-data-ethics"
+    },
+    {
+      "file": "daily-01-core-verbs.json",
+      "words": 113,
+      "category": "daily",
+      "subcategory": "core-verbs"
+    },
+    {
+      "file": "daily-02-common-phrasal-verbs.json",
+      "words": 125,
+      "category": "daily",
+      "subcategory": "common-phrasal-verbs"
+    },
+    {
+      "file": "daily-03-family-people.json",
+      "words": 127,
+      "category": "daily",
+      "subcategory": "family-and-people"
+    },
+    {
+      "file": "daily-04-emotions-feelings.json",
+      "words": 109,
+      "category": "daily",
+      "subcategory": "emotions-and-feelings"
+    },
+    {
+      "file": "daily-05-household-routine.json",
+      "words": 125,
+      "category": "daily",
+      "subcategory": "household-and-routine"
+    },
+    {
+      "file": "daily-06-time-weather.json",
+      "words": 109,
+      "category": "daily",
+      "subcategory": "time-and-weather"
+    },
+    {
+      "file": "daily-07-places-locations.json",
+      "words": 123,
+      "category": "daily",
+      "subcategory": "places-and-locations"
+    },
+    {
+      "file": "daily-08-quantity-degree.json",
+      "words": 125,
+      "category": "daily",
+      "subcategory": "quantity-and-degree"
+    },
+    {
+      "file": "daily-09-actions-movement.json",
+      "words": 125,
+      "category": "daily",
+      "subcategory": "actions-and-movement"
+    },
+    {
+      "file": "daily-10-everyday-objects.json",
+      "words": 124,
+      "category": "daily",
+      "subcategory": "everyday-objects"
+    },
+    {
+      "file": "daily-11-function-expressions.json",
+      "words": 124,
+      "category": "daily",
+      "subcategory": "function-expressions"
+    },
+    {
+      "file": "daily-12-common-adjectives.json",
+      "words": 118,
+      "category": "daily",
+      "subcategory": "common-adjectives"
+    },
+    {
+      "file": "daily-13-descriptive-adjectives-2.json",
+      "words": 125,
+      "category": "daily",
+      "subcategory": "descriptive-adjectives-2"
+    },
+    {
+      "file": "daily-14-meals-basics.json",
+      "words": 125,
+      "category": "daily",
+      "subcategory": "meals-and-eating-basics"
+    },
+    {
+      "file": "daily-15-tech-daily-basics.json",
+      "words": 125,
+      "category": "daily",
+      "subcategory": "tech-daily-basics"
+    },
+    {
+      "file": "daily-16-clothing-and-grooming.json",
+      "words": 125,
+      "category": "daily",
+      "subcategory": "clothing-and-grooming"
+    },
+    {
+      "file": "daily-17-public-spaces-and-everyday-facilities.json",
+      "words": 125,
+      "category": "daily",
+      "subcategory": "public-spaces-and-everyday-facilities"
+    },
+    {
+      "file": "digital-01-mobile-service-and-connectivity.json",
+      "words": 124,
+      "category": "digital",
+      "subcategory": "mobile-service-and-connectivity"
+    },
+    {
+      "file": "digital-02-social-apps-profile-and-content.json",
+      "words": 125,
+      "category": "digital",
+      "subcategory": "social-apps-profile-and-content"
+    },
+    {
+      "file": "digital-03-academic-email-and-professor-correspondence.json",
+      "words": 125,
+      "category": "digital",
+      "subcategory": "academic-email-and-professor-correspondence"
+    },
+    {
+      "file": "digital-04-scams-and-account-protection.json",
+      "words": 126,
+      "category": "digital",
+      "subcategory": "scams-and-account-protection"
+    },
+    {
+      "file": "digital-05-cloud-files-versioning-and-collaboration.json",
+      "words": 125,
+      "category": "digital",
+      "subcategory": "cloud-files-versioning-and-collaboration"
+    },
+    {
+      "file": "digital-06-notifications-focus-and-screen-time.json",
+      "words": 125,
+      "category": "digital",
+      "subcategory": "notifications-focus-and-screen-time"
+    },
+    {
+      "file": "digital-07-software-app-stores-and-subscriptions.json",
+      "words": 125,
+      "category": "digital",
+      "subcategory": "software-app-stores-and-subscriptions"
+    },
+    {
+      "file": "digital-08-device-accessibility-and-troubleshooting.json",
+      "words": 127,
+      "category": "digital",
+      "subcategory": "device-accessibility-and-troubleshooting"
+    },
+    {
+      "file": "economics-01-supply-demand-and-consumer-choice.json",
+      "words": 135,
+      "category": "economics",
+      "subcategory": "supply-demand-and-consumer-choice"
+    },
+    {
+      "file": "economics-02-production-costs-and-market-structures.json",
+      "words": 129,
+      "category": "economics",
+      "subcategory": "production-costs-and-market-structures"
+    },
+    {
+      "file": "economics-03-market-failure-and-public-economics.json",
+      "words": 133,
+      "category": "economics",
+      "subcategory": "market-failure-and-public-economics"
+    },
+    {
+      "file": "economics-04-national-accounts-growth-and-cycles.json",
+      "words": 132,
+      "category": "economics",
+      "subcategory": "national-accounts-growth-and-cycles"
+    },
+    {
+      "file": "economics-05-employment-inflation-and-stabilization.json",
+      "words": 135,
+      "category": "economics",
+      "subcategory": "employment-inflation-and-stabilization"
+    },
+    {
+      "file": "economics-06-international-trade-exchange-rates-and-development.json",
+      "words": 132,
+      "category": "economics",
+      "subcategory": "international-trade-exchange-rates-and-development"
+    },
+    {
+      "file": "economics-07-econometrics-and-causal-identification.json",
+      "words": 132,
+      "category": "economics",
+      "subcategory": "econometrics-and-causal-identification"
+    },
+    {
+      "file": "economics-08-strategic-interaction-and-game-theory.json",
+      "words": 133,
+      "category": "economics",
+      "subcategory": "strategic-interaction-and-game-theory"
+    },
+    {
+      "file": "emergency-01-calls-location-and-assistance.json",
+      "words": 125,
+      "category": "emergency",
+      "subcategory": "calls-location-and-assistance"
+    },
+    {
+      "file": "emergency-02-campus-alerts-and-evacuation.json",
+      "words": 125,
+      "category": "emergency",
+      "subcategory": "campus-alerts-and-evacuation"
+    },
+    {
+      "file": "emergency-03-severe-weather-and-outages.json",
+      "words": 125,
+      "category": "emergency",
+      "subcategory": "severe-weather-and-outages"
+    },
+    {
+      "file": "emergency-04-sudden-illness-and-injury-communication.json",
+      "words": 125,
+      "category": "emergency",
+      "subcategory": "sudden-illness-and-injury-communication"
+    },
+    {
+      "file": "emergency-05-lost-items-documents-and-reporting.json",
+      "words": 123,
+      "category": "emergency",
+      "subcategory": "lost-items-documents-and-reporting"
+    },
+    {
+      "file": "emergency-06-incident-records-insurance-and-recovery.json",
+      "words": 125,
+      "category": "emergency",
+      "subcategory": "incident-records-insurance-and-recovery"
+    },
+    {
+      "file": "engineering-01-statics-and-mechanics-of-materials.json",
+      "words": 133,
+      "category": "engineering",
+      "subcategory": "statics-and-mechanics-of-materials"
+    },
+    {
+      "file": "engineering-02-dynamics-machine-elements-and-vibration.json",
+      "words": 135,
+      "category": "engineering",
+      "subcategory": "dynamics-machine-elements-and-vibration"
+    },
+    {
+      "file": "engineering-03-thermodynamics-and-fluid-mechanics.json",
+      "words": 130,
+      "category": "engineering",
+      "subcategory": "thermodynamics-and-fluid-mechanics"
+    },
+    {
+      "file": "engineering-04-circuit-analysis-and-instrumentation.json",
+      "words": 133,
+      "category": "engineering",
+      "subcategory": "circuit-analysis-and-instrumentation"
+    },
+    {
+      "file": "engineering-05-electronics-signals-and-control.json",
+      "words": 132,
+      "category": "engineering",
+      "subcategory": "electronics-signals-and-control"
+    },
+    {
+      "file": "engineering-06-civil-materials-and-construction.json",
+      "words": 133,
+      "category": "engineering",
+      "subcategory": "civil-materials-and-construction"
+    },
+    {
+      "file": "engineering-07-geotechnics-structures-hydraulics-and-transportation.json",
+      "words": 135,
+      "category": "engineering",
+      "subcategory": "geotechnics-structures-hydraulics-and-transportation"
+    },
+    {
+      "file": "engineering-08-material-energy-balances-and-transport.json",
+      "words": 134,
+      "category": "engineering",
+      "subcategory": "material-energy-balances-and-transport"
+    },
+    {
+      "file": "engineering-09-unit-operations-separation-and-heat-exchange.json",
+      "words": 134,
+      "category": "engineering",
+      "subcategory": "unit-operations-separation-and-heat-exchange"
+    },
+    {
+      "file": "engineering-10-design-measurement-and-quality.json",
+      "words": 132,
+      "category": "engineering",
+      "subcategory": "design-measurement-and-quality"
+    },
+    {
+      "file": "entertainment-01-film-television-and-streaming.json",
+      "words": 125,
+      "category": "entertainment",
+      "subcategory": "film-television-and-streaming"
+    },
+    {
+      "file": "entertainment-02-music-recordings-and-live-performances.json",
+      "words": 126,
+      "category": "entertainment",
+      "subcategory": "music-recordings-and-live-performances"
+    },
+    {
+      "file": "entertainment-03-theatre-and-performing-arts.json",
+      "words": 125,
+      "category": "entertainment",
+      "subcategory": "theatre-and-performing-arts"
+    },
+    {
+      "file": "entertainment-04-video-and-tabletop-games.json",
+      "words": 125,
+      "category": "entertainment",
+      "subcategory": "video-and-tabletop-games"
+    },
+    {
+      "file": "entertainment-05-gym-and-recreational-fitness.json",
+      "words": 125,
+      "category": "entertainment",
+      "subcategory": "gym-and-recreational-fitness"
+    },
+    {
+      "file": "entertainment-06-campus-leagues-and-team-sports.json",
+      "words": 132,
+      "category": "entertainment",
+      "subcategory": "campus-leagues-and-team-sports"
+    },
+    {
+      "file": "entertainment-07-tickets-venues-and-spectators.json",
+      "words": 125,
+      "category": "entertainment",
+      "subcategory": "tickets-venues-and-spectators"
+    },
+    {
+      "file": "entertainment-08-hobbies-outdoors-and-creative-projects.json",
+      "words": 125,
+      "category": "entertainment",
+      "subcategory": "hobbies-outdoors-and-creative-projects"
+    },
+    {
+      "file": "finance-01-credit-records-and-consumer-borrowing.json",
+      "words": 125,
+      "category": "finance",
+      "subcategory": "credit-records-and-consumer-borrowing"
+    },
+    {
+      "file": "finance-02-student-funding-programmes-and-repayment.json",
+      "words": 126,
+      "category": "finance",
+      "subcategory": "student-funding-programmes-and-repayment"
+    },
+    {
+      "file": "finance-03-international-transfer-and-fx-documents.json",
+      "words": 125,
+      "category": "finance",
+      "subcategory": "international-transfer-and-fx-documents"
+    },
+    {
+      "file": "finance-04-individual-tax-and-income-documents.json",
+      "words": 125,
+      "category": "finance",
+      "subcategory": "individual-tax-and-income-documents"
+    },
+    {
+      "file": "finance-05-funds-and-portfolio-documents.json",
+      "words": 132,
+      "category": "finance",
+      "subcategory": "funds-and-portfolio-documents"
+    },
+    {
+      "file": "finance-06-bond-terms-credit-and-yield.json",
+      "words": 129,
+      "category": "finance",
+      "subcategory": "bond-terms-credit-and-yield"
+    },
+    {
+      "file": "finance-07-capital-budgeting-and-project-finance.json",
+      "words": 125,
+      "category": "finance",
+      "subcategory": "capital-budgeting-and-project-finance"
+    },
+    {
+      "file": "finance-08-equity-issuance-and-shareholder-documents.json",
+      "words": 135,
+      "category": "finance",
+      "subcategory": "equity-issuance-and-shareholder-documents"
+    },
+    {
+      "file": "food-01-produce-and-grocery-shopping.json",
+      "words": 125,
+      "category": "food",
+      "subcategory": "produce-and-grocery-shopping"
+    },
+    {
+      "file": "food-02-meat-seafood-and-deli.json",
+      "words": 125,
+      "category": "food",
+      "subcategory": "meat-seafood-and-deli"
+    },
+    {
+      "file": "food-03-dairy-eggs-and-pantry-staples.json",
+      "words": 121,
+      "category": "food",
+      "subcategory": "dairy-eggs-and-pantry-staples"
+    },
+    {
+      "file": "food-04-prep-and-kitchen-tools.json",
+      "words": 125,
+      "category": "food",
+      "subcategory": "prep-and-kitchen-tools"
+    },
+    {
+      "file": "food-05-cooking-methods-and-texture.json",
+      "words": 116,
+      "category": "food",
+      "subcategory": "cooking-methods-and-texture"
+    },
+    {
+      "file": "food-06-dining-in-and-ordering.json",
+      "words": 125,
+      "category": "food",
+      "subcategory": "dining-in-and-ordering"
+    },
+    {
+      "file": "food-07-takeaway-and-delivery.json",
+      "words": 125,
+      "category": "food",
+      "subcategory": "takeaway-and-delivery"
+    },
+    {
+      "file": "food-08-dietary-needs-and-food-storage.json",
+      "words": 125,
+      "category": "food",
+      "subcategory": "dietary-needs-and-food-storage"
+    },
+    {
+      "file": "government-01-public-offices-and-appointments.json",
+      "words": 115,
+      "category": "government",
+      "subcategory": "public-offices-and-appointments"
+    },
+    {
+      "file": "government-02-passports-and-identity-records.json",
+      "words": 125,
+      "category": "government",
+      "subcategory": "passports-and-identity-records"
+    },
+    {
+      "file": "government-03-visas-and-residency-documents.json",
+      "words": 125,
+      "category": "government",
+      "subcategory": "visas-and-residency-documents"
+    },
+    {
+      "file": "government-04-forms-and-declarations.json",
+      "words": 122,
+      "category": "government",
+      "subcategory": "forms-and-declarations"
+    },
+    {
+      "file": "government-05-document-certification-and-translation.json",
+      "words": 125,
+      "category": "government",
+      "subcategory": "document-certification-and-translation"
+    },
+    {
+      "file": "government-06-notices-and-case-status.json",
+      "words": 125,
+      "category": "government",
+      "subcategory": "notices-and-case-status"
+    },
+    {
+      "file": "government-07-driving-documents-and-local-permits.json",
+      "words": 120,
+      "category": "government",
+      "subcategory": "driving-documents-and-local-permits"
+    },
+    {
+      "file": "government-08-postal-and-document-delivery.json",
+      "words": 125,
+      "category": "government",
+      "subcategory": "postal-and-document-delivery"
+    },
+    {
+      "file": "health-01-common-symptoms.json",
+      "words": 125,
+      "category": "health",
+      "subcategory": "common-symptoms"
+    },
+    {
+      "file": "health-02-appointments-clinic.json",
+      "words": 125,
+      "category": "health",
+      "subcategory": "appointments-clinic"
+    },
+    {
+      "file": "health-03-pharmacy-prescriptions.json",
+      "words": 125,
+      "category": "health",
+      "subcategory": "pharmacy-prescriptions"
+    },
+    {
+      "file": "health-04-insurance-costs.json",
+      "words": 122,
+      "category": "health",
+      "subcategory": "insurance-costs"
+    },
+    {
+      "file": "health-05-urgent-emergency-care.json",
+      "words": 125,
+      "category": "health",
+      "subcategory": "urgent-emergency-care"
+    },
+    {
+      "file": "health-06-dental-care.json",
+      "words": 125,
+      "category": "health",
+      "subcategory": "dental-care"
+    },
+    {
+      "file": "health-07-vision-eye-care.json",
+      "words": 125,
+      "category": "health",
+      "subcategory": "vision-eye-care"
+    },
+    {
+      "file": "health-08-counseling-and-wellbeing.json",
+      "words": 118,
+      "category": "health",
+      "subcategory": "counseling-and-wellbeing"
+    },
+    {
+      "file": "health-09-preventive-care-and-screening.json",
+      "words": 123,
+      "category": "health",
+      "subcategory": "preventive-care-and-screening"
+    },
+    {
+      "file": "health-10-recovery-and-rehabilitation.json",
+      "words": 125,
+      "category": "health",
+      "subcategory": "recovery-and-rehabilitation"
+    },
+    {
+      "file": "housing-01-apartment-search.json",
+      "words": 118,
+      "category": "housing",
+      "subcategory": "apartment-search"
+    },
+    {
+      "file": "housing-02-viewing-inspection.json",
+      "words": 116,
+      "category": "housing",
+      "subcategory": "viewing-inspection"
+    },
+    {
+      "file": "housing-03-lease-agreements.json",
+      "words": 125,
+      "category": "housing",
+      "subcategory": "lease-agreements"
+    },
+    {
+      "file": "housing-04-deposits-fees.json",
+      "words": 123,
+      "category": "housing",
+      "subcategory": "deposits-fees"
+    },
+    {
+      "file": "housing-05-rent-payments.json",
+      "words": 124,
+      "category": "housing",
+      "subcategory": "rent-payments"
+    },
+    {
+      "file": "housing-06-utility-bills.json",
+      "words": 123,
+      "category": "housing",
+      "subcategory": "utility-bills"
+    },
+    {
+      "file": "housing-07-furniture-furnishings.json",
+      "words": 122,
+      "category": "housing",
+      "subcategory": "furniture-furnishings"
+    },
+    {
+      "file": "housing-08-household-appliances.json",
+      "words": 125,
+      "category": "housing",
+      "subcategory": "household-appliances"
+    },
+    {
+      "file": "housing-09-repairs-maintenance.json",
+      "words": 125,
+      "category": "housing",
+      "subcategory": "repairs-maintenance"
+    },
+    {
+      "file": "housing-10-moving-neighbours.json",
+      "words": 114,
+      "category": "housing",
+      "subcategory": "moving-neighbours"
+    },
+    {
+      "file": "law-01-contract-formation-and-interpretation.json",
+      "words": 133,
+      "category": "law",
+      "subcategory": "contract-formation-and-interpretation"
+    },
+    {
+      "file": "law-02-contract-performance-breach-and-remedies.json",
+      "words": 132,
+      "category": "law",
+      "subcategory": "contract-performance-breach-and-remedies"
+    },
+    {
+      "file": "law-03-negligence-duty-causation-and-loss.json",
+      "words": 135,
+      "category": "law",
+      "subcategory": "negligence-duty-causation-and-loss"
+    },
+    {
+      "file": "law-04-civil-liability-beyond-negligence.json",
+      "words": 131,
+      "category": "law",
+      "subcategory": "civil-liability-beyond-negligence"
+    },
+    {
+      "file": "law-05-criminal-law-and-procedure.json",
+      "words": 133,
+      "category": "law",
+      "subcategory": "criminal-law-and-procedure"
+    },
+    {
+      "file": "law-06-student-immigration-and-study-authorisation.json",
+      "words": 132,
+      "category": "law",
+      "subcategory": "student-immigration-and-study-authorisation"
+    },
+    {
+      "file": "law-07-civil-procedure-evidence-and-dispute-resolution.json",
+      "words": 135,
+      "category": "law",
+      "subcategory": "civil-procedure-evidence-and-dispute-resolution"
+    },
+    {
+      "file": "law-08-legal-sources-and-case-reading.json",
+      "words": 133,
+      "category": "law",
+      "subcategory": "legal-sources-and-case-reading"
+    },
+    {
+      "file": "marketing-01-consumer-behavior-and-market-research.json",
+      "words": 134,
+      "category": "marketing",
+      "subcategory": "consumer-behavior-and-market-research"
+    },
+    {
+      "file": "marketing-02-brand-product-and-positioning.json",
+      "words": 132,
+      "category": "marketing",
+      "subcategory": "brand-product-and-positioning"
+    },
+    {
+      "file": "marketing-03-channels-pricing-and-retail.json",
+      "words": 135,
+      "category": "marketing",
+      "subcategory": "channels-pricing-and-retail"
+    },
+    {
+      "file": "marketing-04-advertising-creative-and-measurement.json",
+      "words": 133,
+      "category": "marketing",
+      "subcategory": "advertising-creative-and-measurement"
+    },
+    {
+      "file": "marketing-05-public-relations-and-public-communications.json",
+      "words": 133,
+      "category": "marketing",
+      "subcategory": "public-relations-and-public-communications"
+    },
+    {
+      "file": "marketing-06-journalism-newsroom-and-verification.json",
+      "words": 134,
+      "category": "marketing",
+      "subcategory": "journalism-newsroom-and-verification"
+    },
+    {
+      "file": "marketing-07-screen-production-distribution-and-audiences.json",
+      "words": 135,
+      "category": "marketing",
+      "subcategory": "screen-production-distribution-and-audiences"
+    },
+    {
+      "file": "math-01-single-variable-calculus.json",
+      "words": 135,
+      "category": "math",
+      "subcategory": "single-variable-calculus"
+    },
+    {
+      "file": "math-02-integration-sequences-and-series.json",
+      "words": 129,
+      "category": "math",
+      "subcategory": "integration-sequences-and-series"
+    },
+    {
+      "file": "math-03-vectors-and-multivariable-calculus.json",
+      "words": 134,
+      "category": "math",
+      "subcategory": "vectors-and-multivariable-calculus"
+    },
+    {
+      "file": "math-04-matrices-linear-systems-and-vector-spaces.json",
+      "words": 133,
+      "category": "math",
+      "subcategory": "matrices-linear-systems-and-vector-spaces"
+    },
+    {
+      "file": "math-05-eigenvalues-orthogonality-and-factorizations.json",
+      "words": 128,
+      "category": "math",
+      "subcategory": "eigenvalues-orthogonality-and-factorizations"
+    },
+    {
+      "file": "math-06-probability-and-random-variables.json",
+      "words": 135,
+      "category": "math",
+      "subcategory": "probability-and-random-variables"
+    },
+    {
+      "file": "math-07-estimation-testing-and-statistical-inference.json",
+      "words": 134,
+      "category": "math",
+      "subcategory": "estimation-testing-and-statistical-inference"
+    },
+    {
+      "file": "medicine-01-anatomical-language-and-body-organization.json",
+      "words": 135,
+      "category": "medicine",
+      "subcategory": "anatomical-language-and-body-organization"
+    },
+    {
+      "file": "medicine-02-musculoskeletal-anatomy-and-movement.json",
+      "words": 134,
+      "category": "medicine",
+      "subcategory": "musculoskeletal-anatomy-and-movement"
+    },
+    {
+      "file": "medicine-03-cardiovascular-and-respiratory-systems.json",
+      "words": 135,
+      "category": "medicine",
+      "subcategory": "cardiovascular-and-respiratory-systems"
+    },
+    {
+      "file": "medicine-04-digestive-renal-and-endocrine-systems.json",
+      "words": 135,
+      "category": "medicine",
+      "subcategory": "digestive-renal-and-endocrine-systems"
+    },
+    {
+      "file": "medicine-05-neuroanatomy-and-sensory-physiology.json",
+      "words": 134,
+      "category": "medicine",
+      "subcategory": "neuroanatomy-and-sensory-physiology"
+    },
+    {
+      "file": "medicine-06-human-genetics-and-inheritance.json",
+      "words": 134,
+      "category": "medicine",
+      "subcategory": "human-genetics-and-inheritance"
+    },
+    {
+      "file": "medicine-07-human-biochemistry-and-metabolism.json",
+      "words": 132,
+      "category": "medicine",
+      "subcategory": "human-biochemistry-and-metabolism"
+    },
+    {
+      "file": "medicine-08-blood-lymphatic-and-immune-physiology.json",
+      "words": 135,
+      "category": "medicine",
+      "subcategory": "blood-lymphatic-and-immune-physiology"
+    },
+    {
+      "file": "medicine-09-microscopy-histology-and-anatomical-imaging.json",
+      "words": 134,
+      "category": "medicine",
+      "subcategory": "microscopy-histology-and-anatomical-imaging"
+    },
+    {
+      "file": "medicine-10-clinical-evidence-and-health-research.json",
+      "words": 134,
+      "category": "medicine",
+      "subcategory": "clinical-evidence-and-health-research"
+    },
+    {
+      "file": "money-01-bank-accounts.json",
+      "words": 125,
+      "category": "money",
+      "subcategory": "bank-accounts"
+    },
+    {
+      "file": "money-02-card-and-checkout-payments.json",
+      "words": 118,
+      "category": "money",
+      "subcategory": "card-and-checkout-payments"
+    },
+    {
+      "file": "money-03-transfers-and-remittances.json",
+      "words": 125,
+      "category": "money",
+      "subcategory": "transfers-and-remittances"
+    },
+    {
+      "file": "money-04-budgeting-and-everyday-spending.json",
+      "words": 125,
+      "category": "money",
+      "subcategory": "budgeting-and-everyday-spending"
+    },
+    {
+      "file": "money-05-savings-and-emergency-funds.json",
+      "words": 123,
+      "category": "money",
+      "subcategory": "savings-and-emergency-funds"
+    },
+    {
+      "file": "money-06-credit-and-borrowing.json",
+      "words": 125,
+      "category": "money",
+      "subcategory": "credit-and-borrowing"
+    },
+    {
+      "file": "money-07-payslips-and-tax-records.json",
+      "words": 121,
+      "category": "money",
+      "subcategory": "payslips-and-tax-records"
+    },
+    {
+      "file": "money-08-student-aid-and-loans.json",
+      "words": 117,
+      "category": "money",
+      "subcategory": "student-aid-and-loans"
+    },
+    {
+      "file": "psychology-01-perspectives-cognition-reasoning-and-language.json",
+      "words": 132,
+      "category": "psychology",
+      "subcategory": "perspectives-cognition-reasoning-and-language"
+    },
+    {
+      "file": "psychology-02-sensation-perception-attention-and-consciousness.json",
+      "words": 134,
+      "category": "psychology",
+      "subcategory": "sensation-perception-attention-and-consciousness"
+    },
+    {
+      "file": "psychology-03-learning-and-memory.json",
+      "words": 135,
+      "category": "psychology",
+      "subcategory": "learning-and-memory"
+    },
+    {
+      "file": "psychology-04-lifespan-development-and-attachment.json",
+      "words": 132,
+      "category": "psychology",
+      "subcategory": "lifespan-development-and-attachment"
+    },
+    {
+      "file": "psychology-05-personality-and-social-psychology.json",
+      "words": 133,
+      "category": "psychology",
+      "subcategory": "personality-and-social-psychology"
+    },
+    {
+      "file": "psychology-06-research-methods-and-participant-ethics.json",
+      "words": 132,
+      "category": "psychology",
+      "subcategory": "research-methods-and-participant-ethics"
+    },
+    {
+      "file": "psychology-07-psychometrics-and-psychological-assessment.json",
+      "words": 135,
+      "category": "psychology",
+      "subcategory": "psychometrics-and-psychological-assessment"
+    },
+    {
+      "file": "psychology-08-sociology-social-structure-and-inequality.json",
+      "words": 133,
+      "category": "psychology",
+      "subcategory": "sociology-social-structure-and-inequality"
+    },
+    {
+      "file": "shopping-01-online-shopping-and-product-listings.json",
+      "words": 125,
+      "category": "shopping",
+      "subcategory": "online-shopping-and-product-listings"
+    },
+    {
+      "file": "shopping-02-returns-exchanges-and-refunds.json",
+      "words": 124,
+      "category": "shopping",
+      "subcategory": "returns-exchanges-and-refunds"
+    },
+    {
+      "file": "shopping-03-customer-support-and-disputes.json",
+      "words": 125,
+      "category": "shopping",
+      "subcategory": "customer-support-and-disputes"
+    },
+    {
+      "file": "shopping-04-secondhand-and-local-marketplaces.json",
+      "words": 125,
+      "category": "shopping",
+      "subcategory": "secondhand-and-local-marketplaces"
+    },
+    {
+      "file": "shopping-05-price-comparison-and-promotions.json",
+      "words": 125,
+      "category": "shopping",
+      "subcategory": "price-comparison-and-promotions"
+    },
+    {
+      "file": "shopping-06-memberships-points-and-student-benefits.json",
+      "words": 121,
+      "category": "shopping",
+      "subcategory": "memberships-points-and-student-benefits"
+    },
+    {
+      "file": "shopping-07-in-store-shopping-fit-and-pickup.json",
+      "words": 125,
+      "category": "shopping",
+      "subcategory": "in-store-shopping-fit-and-pickup"
+    },
+    {
+      "file": "shopping-08-warranties-repairs-and-recalls.json",
+      "words": 123,
+      "category": "shopping",
+      "subcategory": "warranties-repairs-and-recalls"
+    },
+    {
+      "file": "social-01-meeting-people-and-making-friends.json",
+      "words": 125,
+      "category": "social",
+      "subcategory": "meeting-people-and-making-friends"
+    },
+    {
+      "file": "social-02-invitations-and-gatherings.json",
+      "words": 125,
+      "category": "social",
+      "subcategory": "invitations-and-gatherings"
+    },
+    {
+      "file": "social-03-dating-and-relationships.json",
+      "words": 123,
+      "category": "social",
+      "subcategory": "dating-and-relationships"
+    },
+    {
+      "file": "social-04-social-etiquette-and-everyday-customs.json",
+      "words": 125,
+      "category": "social",
+      "subcategory": "social-etiquette-and-everyday-customs"
+    },
+    {
+      "file": "social-05-autumn-halloween-and-thanksgiving.json",
+      "words": 125,
+      "category": "social",
+      "subcategory": "autumn-halloween-and-thanksgiving"
+    },
+    {
+      "file": "social-06-winter-holidays-and-new-year.json",
+      "words": 125,
+      "category": "social",
+      "subcategory": "winter-holidays-and-new-year"
+    },
+    {
+      "file": "social-07-spring-and-summer-celebrations.json",
+      "words": 122,
+      "category": "social",
+      "subcategory": "spring-and-summer-celebrations"
+    },
+    {
+      "file": "social-08-hospitality-and-gift-giving.json",
+      "words": 125,
+      "category": "social",
+      "subcategory": "hospitality-and-gift-giving"
+    },
+    {
+      "file": "social-09-intercultural-exchange-and-belonging.json",
+      "words": 125,
+      "category": "social",
+      "subcategory": "intercultural-exchange-and-belonging"
+    },
+    {
+      "file": "social-10-maintaining-friendships-and-reunions.json",
+      "words": 120,
+      "category": "social",
+      "subcategory": "maintaining-friendships-and-reunions"
+    },
+    {
+      "file": "travel-01-local-public-transport.json",
+      "words": 121,
+      "category": "travel",
+      "subcategory": "local-public-transport"
+    },
+    {
+      "file": "travel-02-intercity-rail-and-coaches.json",
+      "words": 125,
+      "category": "travel",
+      "subcategory": "intercity-rail-and-coaches"
+    },
+    {
+      "file": "travel-03-airports-check-in-and-baggage.json",
+      "words": 125,
+      "category": "travel",
+      "subcategory": "airports-check-in-and-baggage"
+    },
+    {
+      "file": "travel-04-flights-connections-and-disruptions.json",
+      "words": 125,
+      "category": "travel",
+      "subcategory": "flights-connections-and-disruptions"
+    },
+    {
+      "file": "travel-05-driving-car-rental-and-parking.json",
+      "words": 120,
+      "category": "travel",
+      "subcategory": "driving-car-rental-and-parking"
+    },
+    {
+      "file": "travel-06-hotels-hostels-and-reservations.json",
+      "words": 125,
+      "category": "travel",
+      "subcategory": "hotels-hostels-and-reservations"
+    },
+    {
+      "file": "travel-07-navigation-walking-and-cycling.json",
+      "words": 125,
+      "category": "travel",
+      "subcategory": "navigation-walking-and-cycling"
+    },
+    {
+      "file": "travel-08-itineraries-day-trips-and-sightseeing.json",
+      "words": 125,
+      "category": "travel",
+      "subcategory": "itineraries-day-trips-and-sightseeing"
+    }
+  ],
+  "packs": [
+    {
+      "file": "expansion-v6-accounting.json",
+      "words": 769,
+      "memberships": 769,
+      "categoryCounts": {
+        "accounting": 769
+      }
+    },
+    {
+      "file": "expansion-v6-business.json",
+      "words": 1021,
+      "memberships": 1021,
+      "categoryCounts": {
+        "business": 1021
+      }
+    },
+    {
+      "file": "expansion-v6-campus.json",
+      "words": 1989,
+      "memberships": 1989,
+      "categoryCounts": {
+        "campus": 1989
+      }
+    },
+    {
+      "file": "expansion-v6-career.json",
+      "words": 1475,
+      "memberships": 1475,
+      "categoryCounts": {
+        "career": 1475
+      }
+    },
+    {
+      "file": "expansion-v6-communication.json",
+      "words": 788,
+      "memberships": 788,
+      "categoryCounts": {
+        "communication": 788
+      }
+    },
+    {
+      "file": "expansion-v6-cs.json",
+      "words": 1712,
+      "memberships": 1712,
+      "categoryCounts": {
+        "cs": 1712
+      }
+    },
+    {
+      "file": "expansion-v6-daily.json",
+      "words": 2072,
+      "memberships": 2072,
+      "categoryCounts": {
+        "daily": 2072
+      }
+    },
+    {
+      "file": "expansion-v6-digital.json",
+      "words": 1002,
+      "memberships": 1002,
+      "categoryCounts": {
+        "digital": 1002
+      }
+    },
+    {
+      "file": "expansion-v6-economics.json",
+      "words": 1061,
+      "memberships": 1061,
+      "categoryCounts": {
+        "economics": 1061
+      }
+    },
+    {
+      "file": "expansion-v6-emergency.json",
+      "words": 748,
+      "memberships": 748,
+      "categoryCounts": {
+        "emergency": 748
+      }
+    },
+    {
+      "file": "expansion-v6-engineering.json",
+      "words": 1331,
+      "memberships": 1331,
+      "categoryCounts": {
+        "engineering": 1331
+      }
+    },
+    {
+      "file": "expansion-v6-entertainment.json",
+      "words": 1008,
+      "memberships": 1008,
+      "categoryCounts": {
+        "entertainment": 1008
+      }
+    },
+    {
+      "file": "expansion-v6-finance.json",
+      "words": 1022,
+      "memberships": 1022,
+      "categoryCounts": {
+        "finance": 1022
+      }
+    },
+    {
+      "file": "expansion-v6-food.json",
+      "words": 987,
+      "memberships": 987,
+      "categoryCounts": {
+        "food": 987
+      }
+    },
+    {
+      "file": "expansion-v6-government.json",
+      "words": 982,
+      "memberships": 982,
+      "categoryCounts": {
+        "government": 982
+      }
+    },
+    {
+      "file": "expansion-v6-health.json",
+      "words": 1238,
+      "memberships": 1238,
+      "categoryCounts": {
+        "health": 1238
+      }
+    },
+    {
+      "file": "expansion-v6-housing.json",
+      "words": 1215,
+      "memberships": 1215,
+      "categoryCounts": {
+        "housing": 1215
+      }
+    },
+    {
+      "file": "expansion-v6-law.json",
+      "words": 1064,
+      "memberships": 1064,
+      "categoryCounts": {
+        "law": 1064
+      }
+    },
+    {
+      "file": "expansion-v6-marketing.json",
+      "words": 936,
+      "memberships": 936,
+      "categoryCounts": {
+        "marketing": 936
+      }
+    },
+    {
+      "file": "expansion-v6-math.json",
+      "words": 928,
+      "memberships": 928,
+      "categoryCounts": {
+        "math": 928
+      }
+    },
+    {
+      "file": "expansion-v6-medicine.json",
+      "words": 1342,
+      "memberships": 1342,
+      "categoryCounts": {
+        "medicine": 1342
+      }
+    },
+    {
+      "file": "expansion-v6-money.json",
+      "words": 979,
+      "memberships": 979,
+      "categoryCounts": {
+        "money": 979
+      }
+    },
+    {
+      "file": "expansion-v6-psychology.json",
+      "words": 1066,
+      "memberships": 1066,
+      "categoryCounts": {
+        "psychology": 1066
+      }
+    },
+    {
+      "file": "expansion-v6-shopping.json",
+      "words": 993,
+      "memberships": 993,
+      "categoryCounts": {
+        "shopping": 993
+      }
+    },
+    {
+      "file": "expansion-v6-social.json",
+      "words": 1240,
+      "memberships": 1240,
+      "categoryCounts": {
+        "social": 1240
+      }
+    },
+    {
+      "file": "expansion-v6-travel.json",
+      "words": 991,
+      "memberships": 991,
+      "categoryCounts": {
+        "travel": 991
+      }
+    }
+  ],
+  "totals": {
+    "chunkWords": 29959,
+    "packWords": 29959,
+    "errors": 0,
+    "warnings": 66
+  },
+  "errors": [],
+  "warnings": [
+    "campus-06-academic-writing.json: expression 在 v5.2 词库中已存在: \"hook\" — 确认是不同义项或删除",
+    "campus-06-academic-writing.json: expression 在 v5.2 词库中已存在: \"abstract\" — 确认是不同义项或删除",
+    "campus-11-professors-staff.json: expression 在 v5.2 词库中已存在: \"Sincerely\" — 确认是不同义项或删除",
+    "daily-01-core-verbs.json: expression 在 v5.2 词库中已存在: \"follow up\" — 确认是不同义项或删除",
+    "daily-04-emotions-feelings.json: expression 在 v5.2 词库中已存在: \"hurt\" — 确认是不同义项或删除",
+    "daily-04-emotions-feelings.json: expression 在 v5.2 词库中已存在: \"guilty\" — 确认是不同义项或删除",
+    "daily-04-emotions-feelings.json: expression 在 v5.2 词库中已存在: \"awkward\" — 确认是不同义项或删除",
+    "daily-04-emotions-feelings.json: expression 在 v5.2 词库中已存在: \"calm\" — 确认是不同义项或删除",
+    "daily-04-emotions-feelings.json: expression 在 v5.2 词库中已存在: \"tension\" — 确认是不同义项或删除",
+    "daily-04-emotions-feelings.json: expression 在 v5.2 词库中已存在: \"guilt\" — 确认是不同义项或删除",
+    "daily-04-emotions-feelings.json: expression 在 v5.2 词库中已存在: \"panic\" — 确认是不同义项或删除",
+    "daily-04-emotions-feelings.json: expression 在 v5.2 词库中已存在: \"cope\" — 确认是不同义项或删除",
+    "daily-04-emotions-feelings.json: expression 在 v5.2 词库中已存在: \"comfort\" — 确认是不同义项或删除",
+    "daily-04-emotions-feelings.json: expression 在 v5.2 词库中已存在: \"miss\" — 确认是不同义项或删除",
+    "daily-05-household-routine.json[61]: \"a load of laundry\" acceptedZhAnswers 不含主 zhGloss",
+    "daily-06-time-weather.json: expression 在 v5.2 词库中已存在: \"crisp\" — 确认是不同义项或删除",
+    "daily-12-common-adjectives.json: expression 在 v5.2 词库中已存在: \"sore\" — 确认是不同义项或删除",
+    "daily-12-common-adjectives.json: expression 在 v5.2 词库中已存在: \"stiff\" — 确认是不同义项或删除",
+    "daily-12-common-adjectives.json: expression 在 v5.2 词库中已存在: \"queasy\" — 确认是不同义项或删除",
+    "daily-12-common-adjectives.json: expression 在 v5.2 词库中已存在: \"straightforward\" — 确认是不同义项或删除",
+    "daily-12-common-adjectives.json: expression 在 v5.2 词库中已存在: \"damp\" — 确认是不同义项或删除",
+    "daily-12-common-adjectives.json: expression 在 v5.2 词库中已存在: \"tidy\" — 确认是不同义项或删除",
+    "daily-12-common-adjectives.json: expression 在 v5.2 词库中已存在: \"loose\" — 确认是不同义项或删除",
+    "daily-12-common-adjectives.json: expression 在 v5.2 词库中已存在: \"sharp\" — 确认是不同义项或删除",
+    "daily-12-common-adjectives.json: expression 在 v5.2 词库中已存在: \"instant\" — 确认是不同义项或删除",
+    "daily-12-common-adjectives.json: expression 在 v5.2 词库中已存在: \"decent\" — 确认是不同义项或删除",
+    "daily-15-tech-daily-basics.json: expression 在 v5.2 词库中已存在: \"volume\" — 确认是不同义项或删除",
+    "daily-15-tech-daily-basics.json: expression 在 v5.2 词库中已存在: \"text\" — 确认是不同义项或删除",
+    "daily-15-tech-daily-basics.json: expression 在 v5.2 词库中已存在: \"link\" — 确认是不同义项或删除",
+    "daily-15-tech-daily-basics.json: expression 在 v5.2 词库中已存在: \"save\" — 确认是不同义项或删除",
+    "daily-15-tech-daily-basics.json: expression 在 v5.2 词库中已存在: \"charge\" — 确认是不同义项或删除",
+    "daily-15-tech-daily-basics.json: expression 在 v5.2 词库中已存在: \"pair\" — 确认是不同义项或删除",
+    "daily-15-tech-daily-basics.json: expression 在 v5.2 词库中已存在: \"crash\" — 确认是不同义项或删除",
+    "expansion-v6-campus.json: expression 在 v5.2 词库中已存在: \"hook\"",
+    "expansion-v6-campus.json: expression 在 v5.2 词库中已存在: \"abstract\"",
+    "expansion-v6-campus.json: expression 在 v5.2 词库中已存在: \"Sincerely\"",
+    "expansion-v6-daily.json[11]: \"a load of laundry\" acceptedZhAnswers 不含主 zhGloss",
+    "expansion-v6-daily.json: expression 在 v5.2 词库中已存在: \"awkward\"",
+    "expansion-v6-daily.json: expression 在 v5.2 词库中已存在: \"calm\"",
+    "expansion-v6-daily.json: expression 在 v5.2 词库中已存在: \"charge\"",
+    "expansion-v6-daily.json: expression 在 v5.2 词库中已存在: \"comfort\"",
+    "expansion-v6-daily.json: expression 在 v5.2 词库中已存在: \"cope\"",
+    "expansion-v6-daily.json: expression 在 v5.2 词库中已存在: \"crash\"",
+    "expansion-v6-daily.json: expression 在 v5.2 词库中已存在: \"crisp\"",
+    "expansion-v6-daily.json: expression 在 v5.2 词库中已存在: \"damp\"",
+    "expansion-v6-daily.json: expression 在 v5.2 词库中已存在: \"decent\"",
+    "expansion-v6-daily.json: expression 在 v5.2 词库中已存在: \"follow up\"",
+    "expansion-v6-daily.json: expression 在 v5.2 词库中已存在: \"guilt\"",
+    "expansion-v6-daily.json: expression 在 v5.2 词库中已存在: \"guilty\"",
+    "expansion-v6-daily.json: expression 在 v5.2 词库中已存在: \"hurt\"",
+    "expansion-v6-daily.json: expression 在 v5.2 词库中已存在: \"instant\"",
+    "expansion-v6-daily.json: expression 在 v5.2 词库中已存在: \"link\"",
+    "expansion-v6-daily.json: expression 在 v5.2 词库中已存在: \"loose\"",
+    "expansion-v6-daily.json: expression 在 v5.2 词库中已存在: \"miss\"",
+    "expansion-v6-daily.json: expression 在 v5.2 词库中已存在: \"pair\"",
+    "expansion-v6-daily.json: expression 在 v5.2 词库中已存在: \"panic\"",
+    "expansion-v6-daily.json: expression 在 v5.2 词库中已存在: \"queasy\"",
+    "expansion-v6-daily.json: expression 在 v5.2 词库中已存在: \"save\"",
+    "expansion-v6-daily.json: expression 在 v5.2 词库中已存在: \"sharp\"",
+    "expansion-v6-daily.json: expression 在 v5.2 词库中已存在: \"sore\"",
+    "expansion-v6-daily.json: expression 在 v5.2 词库中已存在: \"stiff\"",
+    "expansion-v6-daily.json: expression 在 v5.2 词库中已存在: \"straightforward\"",
+    "expansion-v6-daily.json: expression 在 v5.2 词库中已存在: \"tension\"",
+    "expansion-v6-daily.json: expression 在 v5.2 词库中已存在: \"text\"",
+    "expansion-v6-daily.json: expression 在 v5.2 词库中已存在: \"tidy\"",
+    "expansion-v6-daily.json: expression 在 v5.2 词库中已存在: \"volume\""
+  ]
+}
