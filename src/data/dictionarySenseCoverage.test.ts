@@ -29,9 +29,10 @@ describe('full library dictionary coverage', () => {
     }
   })
 
-  it('merges the full asset while preserving every original word and its reviewed tracks', async () => {
+  it('merges the full dictionary asset while preserving the base vocabulary and its reviewed tracks', async () => {
     const seed = await loadSeedPack()
-    await initializeDatabase(seed.words, seed.memberships)
+    await initializeDatabase(seed.words.filter(word => !word.id.startsWith('v6-')),
+      seed.memberships.filter(item => !item.wordId.startsWith('v6-')))
     const initial = await getUserDataSnapshot()
     const original = initial.words.find((word) => word.expression === 'abandon')!
     const edited = { ...original, enDefinition: 'User edited definition', status: 'paused' as const, knownAt: '2026-10-11T00:00:00Z' }

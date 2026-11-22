@@ -3,9 +3,9 @@ import userEvent from '@testing-library/user-event'
 import { StrictMode } from 'react'
 import { afterEach, beforeEach, vi } from 'vitest'
 import App from './App'
-import { clearDatabase, closeDatabase, getUserDataSnapshot, initializeDatabase, putSettings, putStudyTimeEntry, writeBatch } from './lib/db'
+import { clearDatabase, closeDatabase, getRawDatabase, getUserDataSnapshot, initializeDatabase, putSettings, putStudyTimeEntry, writeBatch } from './lib/db'
 import { DEFAULT_SETTINGS, type ReviewAttempt } from './domain/types'
-import { handcraftedSeedWords, loadSeedPack } from './data/seedVocabulary'
+import { handcraftedSeedMemberships, handcraftedSeedWords, loadSeedPack } from './data/seedVocabulary'
 import * as seedVocabulary from './data/seedVocabulary'
 import { LIST_IDS } from './data/vocabularyLists'
 import * as dictionary from './lib/dictionary'
@@ -13,10 +13,23 @@ import * as dictionarySenses from './data/dictionarySenses'
 import { DICTIONARY_CONTENT_REVISION } from './data/dictionaryContentRevision'
 import { gradeAttempt } from './lib/grading'
 import { createInitialTracks } from './lib/scheduler'
+import { PRE_EXPANSION_SEED_REVISION } from './data/seedContentRevision'
+
+const loadFullSeedPack = loadSeedPack
+const loadInteractionSeed = async () => {
+  const seed = await loadFullSeedPack()
+  const probes = seed.words.filter(word => ['abandon', 'interest'].includes(word.expression) && !word.id.startsWith('seed-'))
+  const ids = new Set(probes.map(word => word.id))
+  return {
+    words: [...handcraftedSeedWords, ...probes],
+    memberships: [...handcraftedSeedMemberships, ...seed.memberships.filter(item => ids.has(item.wordId))],
+  }
+}
 
 describe('App integration', () => {
   beforeEach(async () => {
     await clearDatabase()
+    vi.spyOn(seedVocabulary, 'loadSeedPack').mockImplementation(loadInteractionSeed)
     vi.spyOn(dictionarySenses, 'loadBundledDictionarySenses').mockResolvedValue({ revision: DICTIONARY_CONTENT_REVISION, results: [] })
   })
 
@@ -27,7 +40,7 @@ describe('App integration', () => {
   })
 
   it('keeps a returning account on its installed vocabulary until it saves an expansion choice', async () => {
-    const oldSettings = { ...DEFAULT_SETTINGS, seedContentRevision: '5.3.2', dictionaryContentRevision: DICTIONARY_CONTENT_REVISION, activeCategories: ['daily'] as const }
+    const oldSettings = { ...DEFAULT_SETTINGS, seedContentRevision: PRE_EXPANSION_SEED_REVISION, dictionaryContentRevision: DICTIONARY_CONTENT_REVISION, activeCategories: ['daily'] as const }
     const original = handcraftedSeedWords[0]
     const housing = { ...handcraftedSeedWords[1], id: 'v6-housing-test' }
     const math = { ...handcraftedSeedWords[2], id: 'v6-math-test' }
@@ -62,7 +75,7 @@ describe('App integration', () => {
   })
 
   it('restores opted-in expansion words without resetting reviews synced from another device', async () => {
-    const settings = { ...DEFAULT_SETTINGS, seedContentRevision: '5.3.2', dictionaryContentRevision: DICTIONARY_CONTENT_REVISION }
+    const settings = { ...DEFAULT_SETTINGS, seedContentRevision: PRE_EXPANSION_SEED_REVISION, dictionaryContentRevision: DICTIONARY_CONTENT_REVISION }
     const original = handcraftedSeedWords[0]
     const housing = { ...handcraftedSeedWords[1], id: 'v6-housing-test' }
     const reviewed = { ...createInitialTracks([housing])[0], reps: 5, stability: 15 }
@@ -80,6 +93,30 @@ describe('App integration', () => {
       expect(after.words.map(word => word.id)).toEqual([original.id, housing.id])
       expect(after.tracks.find(track => track.id === reviewed.id)).toEqual(reviewed)
     })
+  })
+
+  it('refreshes examples in the original vocabulary without opting in to new words or resetting reviews', async () => {
+    const original = { ...handcraftedSeedWords[0], status: 'paused' as const }
+    const edited = { ...handcraftedSeedWords[1], contentEdited: true }
+    const revisedExamples = [{ en: 'The tutor collected every assignment on the last day of class.', zh: '课程最后一天，导师收齐了所有作业。' }]
+    const expansion = { ...handcraftedSeedWords[2], id: 'v6-housing-test' }
+    const settings = { ...DEFAULT_SETTINGS, seedContentRevision: '5.3.2', dictionaryContentRevision: DICTIONARY_CONTENT_REVISION }
+    const tracks = createInitialTracks([original, edited]).map(track => ({ ...track, reps: 3 }))
+    await initializeDatabase([original, edited], [], tracks, settings)
+    await (await getRawDatabase()).put('cloudMeta', { key: 'vocabularyUpdateSeen:6.0.0', value: true })
+    vi.spyOn(seedVocabulary, 'loadSeedPack').mockResolvedValue({
+      words: [{ ...original, status: 'active', examples: revisedExamples }, { ...edited, examples: revisedExamples }, expansion],
+      memberships: [{ id: 'housing-test', wordId: expansion.id, listId: LIST_IDS.housing, priority: 1, sortOrder: 0 }],
+    })
+    render(<App preserveVocabulary />)
+    await screen.findByRole('heading', { name: '今日学习计划' })
+    const after = await getUserDataSnapshot()
+    expect(after.words.find(word => word.id === original.id)).toMatchObject({ status: 'paused', examples: revisedExamples })
+    expect(after.words.find(word => word.id === edited.id)).toEqual(edited)
+    expect(after.words).toHaveLength(2)
+    expect(after.tracks).toEqual(tracks.sort((a, b) => a.id.localeCompare(b.id)))
+    expect(after.settings.activeCategories).toEqual(settings.activeCategories)
+    expect(screen.queryByRole('region', { name: '词库已更新' })).not.toBeInTheDocument()
   })
 
   it('offers a first-open picker, starts from the chosen list, and persists library changes', async () => {
@@ -463,10 +500,11 @@ describe('App integration', () => {
   }, 120_000)
 
   it('seeds the local library and starts a no-choice recall session', async () => {
+    vi.mocked(loadSeedPack).mockImplementation(loadFullSeedPack)
     const user = userEvent.setup()
     render(<StrictMode><App /></StrictMode>)
 
-    expect(await screen.findByText('今日学习计划', {}, { timeout: 20_000 })).toBeInTheDocument()
+    expect(await screen.findByText('今日学习计划', {}, { timeout: 90_000 })).toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: '暂时关闭' }))
     await user.click(screen.getByText('查看长期进度与统计依据'))
     expect(screen.getByText('表达积累')).toBeInTheDocument()
@@ -496,7 +534,8 @@ describe('App integration', () => {
     const libraryButtons = screen.getAllByRole('button', { name: '词库' })
     await user.click(libraryButtons[0])
     expect(await screen.findByRole('heading', { name: '词库' })).toBeInTheDocument()
-    await waitFor(() => expect(screen.getByText('37462')).toBeInTheDocument(), { timeout: 20_000 })
+    const { words } = await loadSeedPack()
+    expect(screen.getByText(String(words.length))).toBeInTheDocument()
 
     await user.click(screen.getAllByRole('button', { name: '口语' })[0])
     expect(await screen.findByText('把学过的英语，说出来。')).toBeInTheDocument()

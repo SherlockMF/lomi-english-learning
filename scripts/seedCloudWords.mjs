@@ -35,11 +35,17 @@ export async function seedCloudWords({ url, secret, words, fetcher = globalThis.
   return uploadSharedWords(client, words)
 }
 
-export function seedNeonWords({ query, words, insertOnly = false }) {
+export function seedNeonWords({ query, words, insertOnly = false, refreshBase = false }) {
+  const inputRows = 'jsonb_to_recordset($1::jsonb) as word(id text, data jsonb)'
+  const statement = refreshBase
+    ? `update public.words as shared set data = word.data
+       from ${inputRows}
+       where shared.id = word.id and shared.id not like 'v6-%' and shared.data is distinct from word.data`
+    : `insert into public.words(id, data)
+       select id, data from ${inputRows}
+       on conflict (id) ${insertOnly ? 'do nothing' : 'do update set data = excluded.data'}`
   const client = { from: () => ({ upsert: async rows => {
-    await query(`insert into public.words(id, data)
-      select id, data from jsonb_to_recordset($1::jsonb) as word(id text, data jsonb)
-      on conflict (id) ${insertOnly ? 'do nothing' : 'do update set data = excluded.data'}`, [JSON.stringify(rows)])
+    await query(statement, [JSON.stringify(rows)])
     return { error: false }
   } }) }
   return uploadSharedWords(client, words)
@@ -49,8 +55,12 @@ async function main() {
   const root = fileURLToPath(new URL('../', import.meta.url))
   const seed = await loadSeedPackFromDisk(root)
   const insertOnly = process.argv.includes('--expansion-v6')
-  const words = insertOnly ? seed.words.filter(word => word.id.startsWith('v6-')) : seed.words
-  if (insertOnly && !words.length) throw new Error('Missing V6 expansion words')
+  const refreshBase = process.argv.includes('--refresh-base')
+  if (insertOnly && refreshBase) throw new Error('Select one shared vocabulary update mode')
+  const words = insertOnly || refreshBase
+    ? seed.words.filter(word => word.id.startsWith('v6-') === insertOnly)
+    : seed.words
+  if (!words.length) throw new Error('Missing shared words')
   if (process.argv.includes('--dry-run')) {
     if (new Set(words.map((word) => word.id)).size !== words.length) throw new Error('Duplicate shared word ids')
     console.log(`Shared words: ${words.length}`)
@@ -61,11 +71,11 @@ async function main() {
     const connection = new URL(neonUrl)
     if (!['postgres:', 'postgresql:'].includes(connection.protocol)) throw new Error('Invalid Neon database URL')
     connection.searchParams.set('sslmode', 'verify-full')
-    const count = await seedNeonWords({ query: neon(connection.href).query, words, insertOnly })
+    const count = await seedNeonWords({ query: neon(connection.href).query, words, insertOnly, refreshBase })
     console.log(`Shared words: ${count}`)
     return
   }
-  if (insertOnly) throw new Error('The V6 production import requires Neon')
+  if (insertOnly || refreshBase) throw new Error('The targeted production import requires Neon')
   const url = process.env.SUPABASE_URL ?? process.env.VITE_SUPABASE_URL
   const secret = process.env.SUPABASE_SECRET_KEY
   if (!url || !secret) throw new Error('Missing Supabase administrator environment configuration')

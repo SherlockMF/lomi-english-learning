@@ -45,3 +45,13 @@ it('leaves existing shared rows alone during the expansion import', async () => 
   await seedNeonWords({ query, words: [{ id: 'v6-housing-test' }], insertOnly: true })
   expect(query.mock.calls[0][0]).toContain('on conflict (id) do nothing')
 })
+
+it('refreshes only existing base catalog entries whose content changed', async () => {
+  const query = vi.fn(async (_statement: string, _parameters: string[]) => [])
+  await seedNeonWords({ query, words, refreshBase: true })
+  const statement = query.mock.calls[0][0]
+  expect(statement).toContain('update public.words')
+  expect(statement).toContain("shared.id not like 'v6-%'")
+  expect(statement).toContain('shared.data is distinct from word.data')
+  expect(statement).not.toContain('insert')
+})

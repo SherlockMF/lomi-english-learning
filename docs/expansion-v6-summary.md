@@ -34,7 +34,7 @@
 - `src/lib/scheduler.ts`：选中方向按顺序使用 N 到 1 的权重，依首次学习记录跨天分配普通新词。
 - `src/components/OnboardingDialog.tsx` 和 `src/components/LibraryView.tsx`：首次选择后即可开始第一课，后续可在词库勾选或调整优先级。停学某方向后，已学词继续安排复习。
 - `public/data/bundledSeedWords.json` + `bundledSeedMemberships.json`：合并后的 bundled 种子（v6 词已生成 cloze/sentence usagePrompts）。
-- `src/data/seedContentRevision.ts`：新账号使用 6.0.0。发布前已存在的账号沿用 5.3.2，首次打开时显示 V6 更新提示，可在「管理学习词库」保存选项后按方向加入 V6 义项。
+- `src/data/seedContentRevision.ts`：完整词库内容修订为 6.0.1。原有账号以 5.3.3 更新基础词库正文，可在「管理学习词库」保存选项后按方向加入 V6 义项。
 - `data/dictionary-senses/report.json`：新增 29,883 条 not-found unresolved 记录，词典覆盖账目与全量词库平衡（37,415 个唯一表达）。后续可对 v6 表达跑词典义项 enrich 管线。
 
 ## V5.2 例句全量重写（2026-11-22）
@@ -43,17 +43,16 @@
 
 重写流水线（`scripts/splitV52Rewrite.mjs` → 22 个工作文件 → 11 组重写 agent → `scripts/mergeV52Rewrite.mjs` 回写 trusted pack → `buildBundledSeedPack` 重建）：
 
-- 7,361 词 × 2 句全量重写为自然双语例句（10–18 词、含目标词或其屈折、中文「」标注）
-- **680 处 zhGloss 义项修复**——ECDICT 批量词选义错误率远超预期（如 underwater 在水中的→资不抵债的、capital 首都→资金、match 比赛→火柴、check 检查→支票、traveller 旅行商→旅行者、missile 发射物→导弹、MS 美国微软公司→女士），旧译保留为 acceptedZhAnswers 备选
-- 60+ 处 enDefinition 对齐（含乱码定义 "an auditor of assistant chief"、错挂的棒球/桥牌/保税仓库义）
-- usagePrompts（cloze/sentence）随新例句同步再生
+- 复核源词包 7,361 个义项，其中 7,360 个义项更新了例句。生成正式产物后，7,262 个义项的双语例句和用法练习同步更新。
+- 对比上一版正式产物，859 个中文释义和 431 个英文定义有调整。例如 `underwater` 的金融义改为「资不抵债的」。
+- 原词条 ID 和分类归属保留，个人词条编辑、词库选择和复习记录沿用现有数据。
 - 回归审计：模板家族 161 → **0**（v5.2 与 v6 双双 0%），zh 异常 946 → **0**
 
 工具链：`scripts/auditTemplateExamples.mjs`（v5.2）与 `scripts/auditV6TemplateExamples.mjs`（v6）可随时对新词跑模板回归。
 
 ## 已知权衡
 
-- bundledSeedWords.json 约 58 MB（未压缩）。新账号首开一次性写入完整种子，旧账号更新时只写入选中方向。这次发布沿用冻结例句，正在复核的改写另行发版。
+- bundledSeedWords.json 约 58 MB（未压缩）。新账号首开一次性写入完整种子，旧账号按原选择加入 V6 内容。
 - v6 词条 vocabularyLevel 覆盖率约 13%（生成时"有把握才标"）；未标注词条沿用应用内 lexicon/profile 估算（默认 B2）。
 - 词典义项 enrich（wordSenses）尚未覆盖 v6 表达（unresolved 记账已就位）。
 

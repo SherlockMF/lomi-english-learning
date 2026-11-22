@@ -7,7 +7,7 @@ import type { AccountControls } from './components/AccountDataSection'
 import { saveVoiceExpression, type VoiceExpressionDraft } from './lib/voice/review'
 import { applyStudyCategoryOrder, buildFirstLessonPlan } from './lib/onboarding'
 import { handcraftedSeedMemberships, handcraftedSeedWords, loadSeedPack, selectAccountSeed } from './data/seedVocabulary'
-import { PRE_EXPANSION_SEED_REVISION, SEED_CONTENT_REVISION } from './data/seedContentRevision'
+import { PRE_EXPANSION_SEED_REVISION } from './data/seedContentRevision'
 import { DICTIONARY_CONTENT_REVISION } from './data/dictionaryContentRevision'
 import { loadBundledDictionarySenses } from './data/dictionarySenses'
 import { ALL_VOCABULARY_LISTS, listIdForSlug } from './data/vocabularyLists'
@@ -92,7 +92,7 @@ interface ActiveSession {
 
 const EXTRA_NEW_ITEM_COUNT = 5
 const PRE_EXPANSION_SETTINGS = { ...DEFAULT_SETTINGS, seedContentRevision: PRE_EXPANSION_SEED_REVISION }
-const VOCABULARY_NOTICE_KEY = `vocabularyUpdateSeen:${SEED_CONTENT_REVISION}`
+const VOCABULARY_NOTICE_KEY = 'vocabularyUpdateSeen:6.0.0'
 
 const AddView = lazy(() => import('./components/AddView').then(module => ({ default: module.AddView })))
 const LibraryView = lazy(() => import('./components/LibraryView').then(module => ({ default: module.LibraryView })))

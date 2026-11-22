@@ -14,7 +14,7 @@
 | **仓库** | [`SherlockMF/lomi-english-learning`](https://github.com/SherlockMF/lomi-english-learning) |
 | **主分支** | `master`（统一维护分支） |
 | **npm 包名** | `lomi-english-learning`（私有应用包，不发布到 npm） |
-| **版本** | 0.1.0（词库 **V6**，内容修订 **6.0.0**） |
+| **版本** | 0.1.0（词库 **V6**，内容修订 **6.0.1**） |
 | **技术栈** | React 19 · Vite · TypeScript · IndexedDB (`idb`) · FSRS (`ts-fsrs`) |
 
 ## 功能概览
