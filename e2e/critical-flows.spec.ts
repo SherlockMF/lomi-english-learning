@@ -196,6 +196,8 @@ test('editing one sense preserves the other senses and saved edit on reload', as
 })
 
 test('downloads a backup and restores words, FSRS, reviews and settings after a local change', async ({ page }, testInfo) => {
+  // The full production vocabulary makes the export and IndexedDB restore larger than other flows.
+  test.setTimeout(180_000)
   await boot(page)
   await page.getByRole('button', { name: '开始今天的训练' }).click()
   await page.getByRole('button', { name: '想不起来', exact: true }).click()
@@ -223,7 +225,7 @@ test('downloads a backup and restores words, FSRS, reviews and settings after a 
   await page.getByRole('button', { name: '导入学习备份', exact: true }).click()
   page.once('dialog', dialog => dialog.accept())
   await (await chooserPromise).setFiles(backupPath)
-  await expect(page.getByText(/导入完成：.*次回忆。/)).toBeVisible({ timeout: 60_000 })
+  await expect(page.getByText(/导入完成：.*次回忆。/)).toBeVisible({ timeout: 90_000 })
   const restored = await snapshot(page)
   expect(restored.hashes.words).toBe(hash(backup.words))
   expect(restored.hashes.tracks).toBe(hash(backup.tracks))

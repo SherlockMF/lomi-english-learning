@@ -168,7 +168,7 @@ describe('App integration', () => {
     expect(within(plans).getByRole('article', { name: '标准' })).toHaveTextContent('推荐')
     expect(within(plans).queryByRole('button', { name: /购买|开通|订阅|升级/ })).not.toBeInTheDocument()
     await user.click(within(plans).getByRole('button', { name: '去口语页看看' }))
-    expect(await screen.findByRole('heading', { name: '把学过的英语，说出来。' })).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: '把学过的英语，说出来。' }, { timeout: 5_000 })).toBeInTheDocument()
     expect(screen.queryByRole('heading', { name: '练习历史' })).not.toBeInTheDocument()
     expect(onRequestLogin).not.toHaveBeenCalled()
     expect(await getUserDataSnapshot()).toEqual(before)

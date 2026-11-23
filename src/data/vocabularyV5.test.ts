@@ -215,12 +215,11 @@ describe('vocabulary V5 trusted library', () => {
       /estimate revenue/i,
       /approximate of the cost/i,
     ]
-    for (const item of bundledSeedWords) {
+    const invalidWord = bundledSeedWords.find((item) => {
       const joined = (item.acceptedEnVariants || []).join(' | ')
-      for (const pattern of banned) {
-        expect(joined, `${item.id} ${item.expression}`).not.toMatch(pattern)
-      }
-    }
+      return banned.some((pattern) => pattern.test(joined))
+    })
+    expect(invalidWord).toBeUndefined()
 
     const priceAsk = seedWords.find(
       (item) => item.id === 'v1-can-you-offer-a-better-price-for-a-larger--9aaadd1b',

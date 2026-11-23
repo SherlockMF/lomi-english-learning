@@ -1,13 +1,11 @@
 import { resolve } from 'node:path'
 import { execFileSync } from 'node:child_process'
-import { afterEach, describe, expect, it } from 'vitest'
-import { createServer, type ViteDevServer } from 'vite'
+import { describe, expect, it } from 'vitest'
 import { rolldown } from 'rolldown'
+import { loadSeedPackFromDisk } from './lib/loadSeedPack.mjs'
 import { SEED_CONTENT_REVISION } from '../src/data/seedContentRevision'
+import { loadSeedPack } from '../src/data/seedVocabulary'
 import { ALL_VOCABULARY_LISTS } from '../src/data/vocabularyLists'
-
-let server: ViteDevServer | undefined
-afterEach(async () => { await server?.close(); server = undefined })
 
 describe('Node export entries', () => {
   it('keeps Node environment unchanged before the production build', () => {
@@ -27,10 +25,7 @@ describe('Node export entries', () => {
   })
 
   it('loads the same complete seed on disk as the browser asset loader', async () => {
-    server = await createServer({ configFile: false, server: { middlewareMode: true }, appType: 'custom' })
-    const { loadSeedPack } = await server.ssrLoadModule('/src/data/seedVocabulary.ts')
     const browserSeed = await loadSeedPack()
-    const { loadSeedPackFromDisk } = await server.ssrLoadModule('/scripts/lib/loadSeedPack.mjs')
     const diskSeed = await loadSeedPackFromDisk(process.cwd())
     expect(diskSeed.words).toEqual(browserSeed.words)
     expect(diskSeed.memberships).toEqual(browserSeed.memberships)
