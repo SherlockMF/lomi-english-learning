@@ -66,6 +66,7 @@ import { createSerialQueue } from './lib/serialQueue'
 import { showToast } from './lib/toast'
 import { escapeRegExp, expressionKey, uniqueStrings } from './lib/text'
 import { normalizeChinese } from './lib/grading'
+import { replaceCorrectedExpression, reviseCorrectionExample, type WordCorrection } from './lib/wordCorrection'
 import { enrichWithLlm } from './lib/llm/enrich'
 import {
   buildFallbackUsagePrompts,
@@ -634,6 +635,41 @@ function App({ onReady, onBusyChange, onRequestLogin, initialTab = 'today', onTa
     if (newUsageTrack.length) setTracks((all) => [...all, ...newUsageTrack])
   }
 
+  async function correctStudyWord(item: VocabularyItem, correction: WordCorrection): Promise<VocabularyItem> {
+    const { expression, zhGloss, enDefinition, example } = correction
+    const expressionChanged = expression !== item.expression
+    const glossChanged = normalizeChinese(zhGloss) !== normalizeChinese(item.zhGloss)
+    const examples = [
+      ...(example.en ? [example] : []),
+      ...item.examples.slice(1).map(entry => reviseCorrectionExample(entry, item, expression, zhGloss)),
+    ]
+    let usagePrompts = item.usagePrompts
+    if (expressionChanged || zhGloss !== item.zhGloss || example.en !== (item.examples[0]?.en ?? '')) {
+      const revisedPrompts = buildUsagePrompts(expression, examples)
+      const prompts = revisedPrompts.length || !usagePrompts.length ? revisedPrompts : buildFallbackUsagePrompts(expression)
+      usagePrompts = prompts.map(prompt => ({ ...prompt, id: usagePrompts.find(previous => previous.type === prompt.type)?.id ?? prompt.id }))
+    }
+    const updated: VocabularyItem = {
+      ...item,
+      expression,
+      lemma: expressionChanged ? normalizeLemma(expression) : item.lemma,
+      zhGloss,
+      enDefinition,
+      acceptedZhAnswers: glossChanged ? [zhGloss] : uniqueStrings([zhGloss, ...item.acceptedZhAnswers]),
+      acceptedEnVariants: expressionChanged ? [expression] : item.acceptedEnVariants,
+      examples,
+      collocations: item.collocations.map(value => replaceCorrectedExpression(value, item.expression, expression)),
+      usagePrompts,
+      ...(expressionChanged && { ipaUk: undefined, ipaUs: undefined, audioUk: undefined, audioUs: undefined }),
+      contentEdited: true,
+      updatedAt: new Date().toISOString(),
+    }
+    await writeBatch({ words: [stripHydration(updated)], expectedWords: [stripHydration(item)] })
+    setItems(all => all.map(candidate => candidate.id === item.id
+      ? { ...candidate, ...stripHydration(updated) } : candidate))
+    return updated
+  }
+
   async function saveSettings(updated: UserSettings) {
     await putSettings(updated)
     setSettings(updated)
@@ -859,6 +895,7 @@ function App({ onReady, onBusyChange, onRequestLogin, initialTab = 'today', onTa
           }}
           onFinish={() => { void refreshData().catch((error) => setSessionError(error instanceof Error ? error.message : '读取学习结果失败。')) }}
           onRate={handleRate}
+          onCorrectWord={correctStudyWord}
           onMarkKnown={toggleKnown}
           onRefreshTasks={refreshSessionTasks}
           difficultyLevel={difficulty.level}

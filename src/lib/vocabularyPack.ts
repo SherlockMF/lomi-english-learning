@@ -313,6 +313,7 @@ export async function importVocabularyPack(
   const localByIdentity = new Map(
     snapshot.words.map((word) => [wordIdentity(word), word] as const),
   )
+  const localById = new Map(snapshot.words.map((word) => [word.id, word] as const))
   const localIds = new Set(snapshot.words.map((word) => word.id))
   const localMembershipKeys = new Set(
     snapshot.memberships.map((item) => `${item.wordId}\u0000${item.listId}`),
@@ -332,6 +333,13 @@ export async function importVocabularyPack(
 
   for (const packWord of pack.words) {
     const identity = wordIdentity(packWord)
+    const sameId = localById.get(packWord.id)
+    // A corrected expression still belongs to the original sense and its learning history.
+    if (sameId && semanticPart(sameId.senseKey) === semanticPart(packWord.senseKey) && wordIdentity(sameId) !== identity) {
+      packWordIdToLocalId.set(packWord.id, sameId.id)
+      unchanged += 1
+      continue
+    }
     const localWord = localByIdentity.get(identity)
 
     if (!localWord) {

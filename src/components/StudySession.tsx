@@ -17,7 +17,10 @@ import { speakWord } from '../lib/speech'
 import { escapeRegExp } from '../lib/text'
 import { localStudyDate } from '../lib/studyTime'
 import { useStudyTimer, type StudyTimerApi } from '../lib/useStudyTimer'
+import type { WordCorrection } from '../lib/wordCorrection'
 import { Icon } from './Icon'
+import { PhraseWordLookup } from './PhraseWordLookup'
+import { WordCorrectionDialog } from './WordCorrectionDialog'
 import { getVocabularyDifficulty } from '../lib/studyDifficulty'
 
 export interface EvaluationResult {
@@ -86,6 +89,7 @@ interface StudySessionProps {
   resolveHint?: (task: SessionTask, item: VocabularyItem, hintLevel: HintLevel) => Promise<string>
   ensureUsageItem?: (item: VocabularyItem) => Promise<VocabularyItem>
   onRate: (task: SessionTask, rating: ReviewRating, detail: RateDetail) => Promise<void>
+  onCorrectWord?: (item: VocabularyItem, correction: WordCorrection) => Promise<VocabularyItem>
   onMarkKnown?: (item: VocabularyItem) => Promise<void>
   onRefreshTasks?: (pending: SessionTask[], started: ReadonlySet<string>, force: boolean) => Promise<SessionTask[]>
   difficultyLevel?: VocabularyLevel
@@ -102,7 +106,7 @@ export function StudySession({
   sessionId: suppliedSessionId,
   timeEntries, onSaveTime, onDayChange, canVerifySentence = false,
   speechAccent = 'uk', onSpeechAccentChange, evaluate, resolveHint, ensureUsageItem,
-  onRate, onExit, onFinish, onMarkKnown, onRefreshTasks, difficultyLevel, dailyPlanComplete, onStartExtra,
+  onRate, onCorrectWord, onExit, onFinish, onMarkKnown, onRefreshTasks, difficultyLevel, dailyPlanComplete, onStartExtra,
 }: StudySessionProps) {
   const sessionId = useRef(suppliedSessionId ?? crypto.randomUUID()).current
   const sessionDay = useRef(localStudyDate()).current
@@ -117,6 +121,8 @@ export function StudySession({
   const [evaluation, setEvaluation] = useState<EvaluationResult | null>(null)
   const [revealed, setRevealed] = useState(false)
   const [correction, setCorrection] = useState('')
+  const [editingWord, setEditingWord] = useState<VocabularyItem | null>(null)
+  const [wordCorrected, setWordCorrected] = useState(false)
   const [failedSaves, setFailedSaves] = useState<FailedSave[]>([])
   const [flushingExit, setFlushingExit] = useState(false)
   const [grading, setGrading] = useState(false)
@@ -148,7 +154,7 @@ export function StudySession({
   const timer = useStudyTimer({
     sessionId, entries: timeEntries, save: onSaveTime,
     enabled: (phase === 'question' || phase === 'feedback') && !grading && !hinting && !ensuringUsage
-      && !paused && !flushingExit && !queueRetry && rebuildMode !== 'day' && pendingWrites === 0 && failedSaves.length === 0,
+      && !paused && !editingWord && !flushingExit && !queueRetry && rebuildMode !== 'day' && pendingWrites === 0 && failedSaves.length === 0,
   })
 
   useEffect(() => {
@@ -219,6 +225,11 @@ export function StudySession({
     setTasks(nextTasks)
     if (index + 1 >= nextTasks.length) { await completeSession(); return }
     setIndex((value) => value + 1)
+    setWordCorrected(false)
+    resetQuestion()
+  }
+
+  function resetQuestion() {
     setAnswer(''); setCorrection(''); setHintLevel(0); setHintText('')
     setRevealed(false); setEvaluation(null); setVerificationRequested(false)
     verificationRef.current = false
@@ -305,7 +316,7 @@ export function StudySession({
   const task = tasks[index]
   const item = useMemo(() => task ? itemOverrides[task.itemId] ?? items.find((candidate) => candidate.id === task.itemId) : undefined, [itemOverrides, items, task])
   const track = useMemo(() => tracks.find((candidate) => candidate.id === task?.trackId), [tracks, task?.trackId])
-  const usagePrompt = item?.usagePrompts[task?.promptIndex ?? 0]
+  const usagePrompt = item?.usagePrompts[(task?.promptIndex ?? 0) % Math.max(1, item.usagePrompts.length)]
   const isSentence = task?.trackType === 'usage' && usagePrompt?.type === 'sentence'
   const needsCorrection = phase === 'feedback' && evaluation?.rating === 'again' && !isSentence && task?.trackType !== 'receptive'
   const correctionTarget = task?.trackType === 'usage' && usagePrompt?.answer ? usagePrompt.answer : item?.expression ?? ''
@@ -314,7 +325,7 @@ export function StudySession({
   useEffect(() => {
     const focusTimer = window.setTimeout(() => inputRef.current?.focus(), 80)
     return () => window.clearTimeout(focusTimer)
-  }, [index])
+  }, [index, phase])
   useEffect(() => {
     if (phase === 'complete' && !finishCalled.current && !savingRef.current && failedSaves.length === 0) {
       finishCalled.current = true
@@ -422,6 +433,18 @@ export function StudySession({
     await persistRating({ key: detail.attemptId, label: item.expression, task, rating, detail, message: '' })
   }
 
+  async function saveWordCorrection(correctionDraft: WordCorrection) {
+    if (!editingWord || !onCorrectWord) return
+    const updated = await onCorrectWord(editingWord, correctionDraft)
+    if (!mountedRef.current) return
+    requestId.current += 1
+    setItemOverrides(current => ({ ...current, [updated.id]: updated }))
+    setGrading(false)
+    setEditingWord(null)
+    setWordCorrected(true)
+    resetQuestion()
+  }
+
   if (rebuildMode === 'day') {
     return (
       <div className="study-overlay complete-overlay"><div className="completion-card">
@@ -504,6 +527,7 @@ export function StudySession({
       </header>
 
       <main className="study-main">
+        {wordCorrected && phase === 'question' && <p className="study-timer-notice" role="status">词条已修正，请按新内容作答。</p>}
         {difficultyLevel && <p className="study-timer-notice" role="status">普通新词目标 {difficultyLevel} · 当前义项 {getVocabularyDifficulty(item).level}{getVocabularyDifficulty(item).source === 'estimated' ? '（估算）' : getVocabularyDifficulty(item).source === 'profile' ? '（词头参考）' : ''}</p>}
         {rebuildError && !rebuildMode && <p className="form-note" role="alert">{rebuildError}</p>}
         {queueRetry && <div className="save-error-panel" role="alert"><p>当前操作已保存，下一组词汇尚未更新：{queueRetry.message}</p><button className="secondary-button" disabled={pendingWrites > 0} onClick={() => void retryQueue()} type="button">重试更新词汇</button></div>}
@@ -634,10 +658,11 @@ export function StudySession({
 
               <div className="answer-reveal">
                 <span>目标表达</span>
-                <h1>{item.expression}</h1>
+                <PhraseWordLookup key={task.id} expression={item.expression} items={items} />
                 {(item.ipaUk || item.ipaUs) && <p>/{item.ipaUk || item.ipaUs}/ · {item.partOfSpeech}</p>}
                 <strong>{item.zhGloss}</strong>
                 {item.enDefinition && <p className="reveal-definition">{item.enDefinition}</p>}
+                {onCorrectWord && <button className="mini-text-button study-correction-button" disabled={grading || flushingExit} onClick={() => setEditingWord(item)} type="button"><Icon name="edit" size={15} /> 纠正词条</button>}
               </div>
 
               {answer && <div className="your-answer"><span>你的回答</span><p>{answer}</p></div>}
@@ -665,6 +690,7 @@ export function StudySession({
                 <div className="context-reveal">
                   <div>
                     <span>IN CONTEXT</span>
+                    {item.scenarioNote && <small>{item.scenarioNote}</small>}
                     <p>{item.examples[(track.reps + index) % Math.max(1, item.examples.length)]?.en ?? '还没有例句，可以稍后在词库中补充。'}</p>
                     {item.examples[(track.reps + index) % Math.max(1, item.examples.length)]?.zh && <small>{item.examples[(track.reps + index) % item.examples.length].zh}</small>}
                   </div>
@@ -704,6 +730,7 @@ export function StudySession({
         </section>
         </fieldset>
       </main>
+      {editingWord && <WordCorrectionDialog item={editingWord} onClose={() => setEditingWord(null)} onSave={saveWordCorrection} />}
     </div>
   )
 }

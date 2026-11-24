@@ -2290,6 +2290,56 @@ p {
 .answer-reveal > strong { color: var(--green-dark); font-size: 16px; }
 .answer-reveal .reveal-definition { max-width: 530px; margin: 12px auto 0; color: var(--muted); font-size: 11px; line-height: 1.55; }
 
+.study-correction-button { display: inline-flex; align-items: center; gap: 5px; min-height: 44px; margin-top: 6px; color: var(--green-dark); }
+.study-correction-backdrop { z-index: 210; }
+.study-correction-dialog { width: min(500px, 100%); }
+.study-correction-dialog .dialog-heading p { margin: 6px 0 0; color: var(--muted); font-size: 13px; line-height: 1.55; }
+.study-correction-fields { min-width: 0; margin: 0; padding: 0; border: 0; }
+.study-correction-dialog input, .study-correction-dialog textarea { font-size: 16px; }
+.study-correction-context { padding: 8px 12px; border: 1px solid var(--line); border-radius: 10px; }
+.study-correction-context summary { padding: 5px 0; color: var(--green-dark); cursor: pointer; font-size: 13px; }
+.study-correction-context label { margin-top: 9px; }
+
+.phrase-word-button {
+  max-width: 100%;
+  min-height: 44px;
+  padding: 0;
+  border-radius: 5px;
+  color: inherit;
+  background: transparent;
+  font: inherit;
+  letter-spacing: inherit;
+  overflow-wrap: anywhere;
+  text-decoration: underline dotted rgba(46, 107, 90, 0.62);
+  text-decoration-thickness: 0.04em;
+  text-underline-offset: 0.13em;
+}
+
+.phrase-word-button:hover, .phrase-word-button:focus-visible { color: var(--green-dark); background: #edf3ee; }
+.phrase-word-backdrop { z-index: 210; background: rgba(19, 31, 28, 0.37); backdrop-filter: blur(3px); }
+.phrase-word-dialog { width: min(430px, 100%); padding: clamp(17px, 5vw, 26px); overflow-wrap: anywhere; }
+.phrase-word-dialog header { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+.phrase-word-dialog h2 { margin: 3px 0 15px; font: 600 32px/1.12 Georgia, serif; }
+.phrase-word-dialog .icon-button { flex-shrink: 0; min-width: 44px; min-height: 44px; }
+.phrase-word-pronunciations { display: flex; flex-wrap: wrap; gap: 8px; }
+.phrase-word-pronunciations button {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  max-width: 100%;
+  min-height: 44px;
+  padding: 7px 11px;
+  border-radius: 10px;
+  color: var(--green-dark);
+  background: #e8f1ed;
+  font-size: 13px;
+  text-align: left;
+}
+.phrase-word-pronunciations svg { flex-shrink: 0; }
+.phrase-word-ipa { margin: 9px 0 0; color: var(--muted); font-size: 13px; }
+.phrase-word-glosses { display: grid; gap: 7px; margin: 16px 0 0; padding: 14px 0 0; border-top: 1px solid var(--line); list-style: none; font-size: 15px; line-height: 1.55; }
+.phrase-word-components { margin: 9px 0 0; padding-left: 18px; color: var(--muted); font-size: 14px; line-height: 1.55; }
+
 .your-answer,
 .context-reveal,
 .model-answer {

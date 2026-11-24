@@ -7,6 +7,22 @@ import { parseVocabularyImport } from './vocabularyImport'
 
 afterEach(closeDatabase)
 
+it('teaches device placement agreement and keeps an older saved copy under the same ID on reimport', async () => {
+  const id = 'shared-power-bank-placement-agreement'
+  const word = parseVocabularyPack(pack).words.find((entry) => entry.id === id)!
+  expect(word.expression).toBe('device placement agreement')
+  expect(word.acceptedEnVariants).toEqual(['device placement agreement', 'equipment placement agreement'])
+  expect(word.usagePrompts.find(prompt => prompt.type === 'cloze')?.answer).toBe(word.expression)
+
+  await clearDatabase()
+  await putWord({ ...word, expression: 'placement agreement', lemma: 'placement agreement', zhGloss: '我的工作译法', contentEdited: true })
+  const result = await importVocabularyPack(pack)
+  const { words } = await getUserDataSnapshot()
+  expect(result.added).toBe(41)
+  expect(words.filter(entry => entry.senseKey === word.senseKey)).toHaveLength(1)
+  expect(words.find(entry => entry.id === id)?.zhGloss).toBe('我的工作译法')
+})
+
 it('provides a valid work-specific pack with matching paste content and preserves progress on repeat imports', async () => {
   const validated = parseVocabularyPack(pack)
   const paste = parseVocabularyImport(pasteText)

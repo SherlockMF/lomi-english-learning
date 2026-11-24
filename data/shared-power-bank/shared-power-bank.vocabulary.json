@@ -483,25 +483,25 @@
       "enDefinition": "the amount of time visitors spend at a venue"
     },
     {
-      "lemma": "placement agreement",
+      "lemma": "device placement agreement",
       "senseKey": "shared-power-bank:placement-agreement",
       "source": "custom",
       "usagePrompts": [
         {
           "type": "cloze",
-          "answer": "placement agreement",
+          "answer": "device placement agreement",
           "checkpoints": [
-            "placement agreement"
+            "device placement agreement"
           ],
-          "modelAnswer": "The placement agreement states who handles maintenance.",
+          "modelAnswer": "The device placement agreement states who handles maintenance.",
           "id": "shared-power-bank-placement-agreement-cloze",
           "prompt": "The _____ states who handles maintenance."
         },
         {
-          "prompt": "在共享充电宝商业化场景中，用 \"placement agreement\" 表达“设备投放协议”，写一个完整句子。",
-          "modelAnswer": "The placement agreement states who handles maintenance.",
+          "prompt": "在共享充电宝商业化场景中，用 \"device placement agreement\" 表达“设备投放协议”，写一个完整句子。",
+          "modelAnswer": "The device placement agreement states who handles maintenance.",
           "checkpoints": [
-            "placement agreement"
+            "device placement agreement"
           ],
           "type": "sentence",
           "id": "shared-power-bank-placement-agreement-sentence"
@@ -510,25 +510,26 @@
       "acceptedZhAnswers": [
         "设备投放协议"
       ],
-      "expression": "placement agreement",
+      "expression": "device placement agreement",
       "examples": [
         {
           "zh": "设备投放协议明确由谁负责维护。",
-          "en": "The placement agreement states who handles maintenance."
+          "en": "The device placement agreement states who handles maintenance."
         }
       ],
       "collocations": [],
       "status": "active",
       "priority": 0,
       "acceptedEnVariants": [
-        "placement agreement"
+        "device placement agreement",
+        "equipment placement agreement"
       ],
       "partOfSpeech": "noun",
       "createdAt": "2026-10-11T00:00:00Z",
       "id": "shared-power-bank-placement-agreement",
       "updatedAt": "2026-10-11T00:00:00Z",
       "zhGloss": "设备投放协议",
-      "enDefinition": "an agreement covering where a station is installed and how it is managed"
+      "enDefinition": "an agreement setting out where a device will be installed and who is responsible for its operation and maintenance"
     },
     {
       "lemma": "exclusive partnership",

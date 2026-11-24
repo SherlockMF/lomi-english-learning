@@ -1,7 +1,8 @@
-import { act, fireEvent, render, screen } from '@testing-library/react'
+import { act, fireEvent, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, vi } from 'vitest'
 import type { LearningTrack, SessionTask, VocabularyItem } from '../domain/types'
+import { speakWord } from '../lib/speech'
 import { StudySession } from './StudySession'
 
 vi.mock('../lib/speech', () => ({ speakWord: vi.fn().mockResolvedValue(undefined) }))
@@ -62,6 +63,45 @@ const task: SessionTask = {
 }
 
 describe('StudySession', () => {
+  it('looks up each revealed phrase word even when neither word is in the study library', async () => {
+    const user = userEvent.setup()
+    const phrase = { ...item, expression: 'payback period', zhGloss: '投资回收期' }
+    const onRate = vi.fn()
+    render(<StudySession initialTasks={[task]} items={[phrase]} tracks={[track]} mode="core"
+      usableThisWeek={0} onRate={onRate} onExit={vi.fn()} onFinish={vi.fn()}
+      evaluate={() => ({ rating: 'again', matched: false })} />)
+
+    expect(screen.queryByRole('button', { name: '查词 payback' })).not.toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: '想不起来' }))
+    const payback = await screen.findByRole('button', { name: '查词 payback' })
+    await user.click(payback)
+    const dialog = screen.getByRole('dialog', { name: 'payback' })
+    expect(within(dialog).getByText(/投资回收；偿还/)).toBeInTheDocument()
+    expect(within(dialog).getByRole('button', { name: '播放 payback 英式发音' })).toHaveTextContent('/ˈpeɪbæk/')
+    await user.click(within(dialog).getByRole('button', { name: '播放 payback 美式发音' }))
+    expect(speakWord).toHaveBeenLastCalledWith(expect.objectContaining({ expression: 'payback' }), 'us')
+
+    await user.keyboard('{Escape}')
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+    expect(payback).toHaveFocus()
+    await user.click(screen.getByRole('button', { name: '查词 period' }))
+    expect(within(screen.getByRole('dialog', { name: 'period' })).getByText(/时期|期间|时段/)).toBeInTheDocument()
+    expect(onRate).not.toHaveBeenCalled()
+  })
+
+  it('looks up a hyphenated word as a whole and preserves phrase punctuation', async () => {
+    const user = userEvent.setup()
+    const phrase = { ...item, expression: 'Wi-Fi password?' }
+    render(<StudySession initialTasks={[task]} items={[phrase]} tracks={[track]} mode="core"
+      usableThisWeek={0} onRate={vi.fn()} onExit={vi.fn()} onFinish={vi.fn()}
+      evaluate={() => ({ rating: 'again', matched: false })} />)
+
+    await user.click(screen.getByRole('button', { name: '想不起来' }))
+    expect(screen.getByRole('heading', { name: 'Wi-Fi password?' })).toHaveTextContent('Wi-Fi password?')
+    await user.click(screen.getByRole('button', { name: '查词 Wi-Fi' }))
+    expect(within(screen.getByRole('dialog', { name: 'Wi-Fi' })).getByText(/无线网络/)).toBeInTheDocument()
+  })
+
   it('locks background scrolling during training and restores it on unmount', () => {
     const originalOverflow = document.body.style.overflow
     document.body.style.overflow = 'auto'

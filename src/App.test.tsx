@@ -39,6 +39,58 @@ describe('App integration', () => {
     vi.restoreAllMocks()
   })
 
+  it('corrects a revealed word in place and uses the saved answers when study resumes', async () => {
+    const word = {
+      ...handcraftedSeedWords[0], id: 'work-agreement', expression: 'placement agreement', lemma: 'placement agreement',
+      zhGloss: '设备协议', acceptedZhAnswers: ['设备协议'], acceptedEnVariants: ['placement agreement'],
+      enDefinition: 'An agreement about where to install a device.',
+      examples: [{ en: 'The placement agreement covers maintenance.', zh: '设备协议涉及维护。' }],
+      ipaUk: 'old-ipa', audioUk: 'https://example.com/old.mp3',
+    }
+    await initializeDatabase([word], [{ id: 'work-membership', wordId: word.id, listId: LIST_IDS['my-vocabulary'], priority: 0, sortOrder: 0, subcategory: '共享充电宝商业化' }], undefined, {
+      ...DEFAULT_SETTINGS, seedContentRevision: PRE_EXPANSION_SEED_REVISION, dictionaryContentRevision: DICTIONARY_CONTENT_REVISION,
+      onboardingCompletedAt: '2026-11-23T00:00:00.000Z', newItemsPerDay: 1,
+    })
+    const before = await getUserDataSnapshot()
+    const user = userEvent.setup()
+    const view = render(<App preserveVocabulary />)
+    await user.click(await screen.findByRole('button', { name: '开始今天的训练' }))
+    await user.click(await screen.findByRole('button', { name: '想不起来' }))
+    expect(screen.getByText('共享充电宝商业化')).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: '纠正词条' }))
+    const dialog = screen.getByRole('dialog', { name: '纠正词条' })
+    const expression = within(dialog).getByRole('textbox', { name: '英文表达' })
+    const meaning = within(dialog).getByRole('textbox', { name: '中文意思' })
+    await user.clear(expression)
+    await user.type(expression, 'device placement agreement')
+    await user.clear(meaning)
+    await user.type(meaning, '设备投放协议')
+    await user.click(within(dialog).getByRole('button', { name: '保存修正' }))
+    expect(await screen.findByRole('heading', { name: 'device placement agreement' })).toBeInTheDocument()
+    expect(screen.getByText('The device placement agreement covers maintenance.')).toBeInTheDocument()
+
+    const after = await getUserDataSnapshot()
+    expect(after.words).toHaveLength(1)
+    expect(after.words[0]).toMatchObject({ id: word.id, senseKey: word.senseKey, contentEdited: true,
+      zhGloss: '设备投放协议', acceptedZhAnswers: ['设备投放协议'], acceptedEnVariants: ['device placement agreement'],
+      examples: [{ en: 'The device placement agreement covers maintenance.', zh: '设备投放协议涉及维护。' }],
+    })
+    expect(after.words[0].ipaUk).toBeUndefined()
+    expect(after.words[0].audioUk).toBeUndefined()
+    expect(after.words[0].usagePrompts.find(prompt => prompt.type === 'cloze')?.answer).toBe('device placement agreement')
+    expect(after.tracks).toEqual(before.tracks)
+    expect(after.attempts).toEqual(before.attempts)
+    expect(after.memberships).toEqual(before.memberships)
+
+    view.unmount()
+    render(<App preserveVocabulary />)
+    await user.click(await screen.findByRole('button', { name: '开始今天的训练' }))
+    expect(await screen.findByRole('heading', { name: 'device placement agreement' })).toBeInTheDocument()
+    await user.type(screen.getByLabelText('你记得的中文意思'), '设备投放协议')
+    await user.click(screen.getByRole('button', { name: /提交回忆/ }))
+    expect(await screen.findByText('无提示回忆正确')).toBeInTheDocument()
+  }, 15_000)
+
   it('keeps a returning account on its installed vocabulary until it saves an expansion choice', async () => {
     const oldSettings = { ...DEFAULT_SETTINGS, seedContentRevision: PRE_EXPANSION_SEED_REVISION, dictionaryContentRevision: DICTIONARY_CONTENT_REVISION, activeCategories: ['daily'] as const }
     const original = handcraftedSeedWords[0]

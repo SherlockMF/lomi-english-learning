@@ -32,3 +32,13 @@
 若需从原始来源重新审查本次自动补齐资料，可使用 `-- --rebuild-contexts`；必须保留包含全部原始查询结果的 journal，否则脚本拒绝重建。
 
 有道义项标识改为词性、中文来源释义及同释义序号，不再随英语定义或例句补充而变化。加载时安全匹配旧标识，保留原词条 ID、用户编辑和独立学习记录。手动补全与启动补全均采用原子事务；补全资源加载失败时仍可使用本地词库，并可点击重试。
+
+## 词组逐词查阅
+
+`src/data/phraseWordDictionary.json` 随学习页加载。它使用内置词库、已有词典义项和下列固定版本的资料，补充组成词的常见中文释义和可用的音标。用户自己的同名词条优先显示；查阅资料不创建学习词条。连字符词缺少完整释义时，会显示可查到的组成部分。
+
+从以下链接取得原始文件后，运行 `node scripts/buildPhraseWordDictionary.mjs <ecdict.csv> <en_US.txt>` 重建。脚本会报告缺少释义或音标的词。源数据和授权说明如下。
+
+- [ECDICT 中文释义和通用音标](https://github.com/skywind3000/ECDICT/blob/39cfb9672c0906b63569e0453c2e6abfb9ab182a/ecdict.csv)
+- [ipa-dict 美式音标](https://github.com/open-dict-data/ipa-dict/blob/972cd67dd5f96bc5660e28070cde26e3928abcd7/data/en_US.txt)
+- [随发布包分发的授权声明](../../public/data/phraseWordDictionary.NOTICE.txt)
