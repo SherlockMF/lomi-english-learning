@@ -1,6 +1,6 @@
 import { createReadStream, readFileSync, writeFileSync } from 'node:fs'
 import { createInterface } from 'node:readline'
-import { phraseWordKey, phraseWordTokens } from '../src/lib/phraseWordTokens.ts'
+import { englishWordTokens, phraseWordKey, phraseWordTokens } from '../src/lib/phraseWordTokens.ts'
 import { loadHandcraftedSenses } from './lib/handcraftedSenses.mjs'
 
 const [ecdictPath, ipaPath] = process.argv.slice(2)
@@ -8,14 +8,42 @@ if (!ecdictPath || !ipaPath) throw new Error('Usage: node scripts/buildPhraseWor
 
 const read = path => readFileSync(new URL(path, import.meta.url), 'utf8')
 const bundled = JSON.parse(read('../public/data/bundledSeedWords.json'))
-const handcrafted = loadHandcraftedSenses(read('../src/data/seedVocabulary.ts'))
+const seedSource = read('../src/data/seedVocabulary.ts')
+const handcrafted = loadHandcraftedSenses(seedSource)
+const workWords = JSON.parse(read('../data/shared-power-bank/shared-power-bank.vocabulary.json')).words
 const senses = JSON.parse(read('../public/data/bundledDictionarySenses.json')).results
-const vocabulary = [...bundled, ...handcrafted]
-const keys = new Set(vocabulary.flatMap(word => phraseWordTokens(word.expression).map(token => phraseWordKey(token.word))))
-for (const word of keys) {
-  keys.add(word.toLowerCase())
-  for (const part of word.split('-')) keys.add(part)
+const vocabulary = [...bundled, ...handcrafted, ...workWords]
+const phraseKeys = new Set(vocabulary.flatMap(word => phraseWordTokens(word.expression).map(token => phraseWordKey(token.word))))
+
+function addRelatedKeys(keys) {
+  for (const word of keys) {
+    keys.add(word.toLowerCase())
+    for (const part of word.split('-')) keys.add(part)
+  }
 }
+
+addRelatedKeys(phraseKeys)
+const keys = new Set(phraseKeys)
+function addExample(text) {
+  if (!text) return
+  for (const { word } of englishWordTokens(text)) keys.add(phraseWordKey(word))
+}
+
+for (const word of [...bundled, ...workWords]) {
+  for (const example of word.examples) addExample(example.en)
+  for (const prompt of word.usagePrompts) addExample(prompt.modelAnswer)
+}
+for (const { meanings } of senses) {
+  for (const meaning of meanings) addExample(meaning.example)
+}
+// Handcrafted SeedRows contain pairs of English and Chinese string literals.
+for (const [, pairs] of seedSource.matchAll(/^\s*examples:\s*(\[\[.*\]\]),\s*$/gmu)) {
+  const literals = Array.from(pairs.matchAll(/'((?:\\.|[^'\\])*)'|"((?:\\.|[^"\\])*)"/gu))
+  for (const [, single, double] of literals.filter((_, index) => index % 2 === 0)) {
+    addExample((single ?? double).replace(/\\(['"\\])/g, '$1'))
+  }
+}
+addRelatedKeys(keys)
 
 const glossary = new Map()
 for (const word of vocabulary) {
@@ -68,6 +96,7 @@ const overrides = {
   the: { glosses: ['定冠词：指特定的人或事物；也用于最高级和序数词前'], uk: 'ðə; ðiː', us: 'ðə; ði' },
   payback: { glosses: ['名词：投资回收；偿还', '名词：回报；报复'], uk: 'ˈpeɪbæk', us: 'ˈpeɪbæk' },
   period: { glosses: ['名词：时期；一段时间', '名词：句号；课时'], uk: 'ˈpɪəriəd', us: 'ˈpɪriəd' },
+  rises: { glosses: ['动词：上升；增加；升起（rise 的第三人称单数）'] },
   AI: { glosses: ['缩写：人工智能（artificial intelligence）'], uk: 'ˌeɪ ˈaɪ', us: 'ˌeɪ ˈaɪ' },
   API: { glosses: ['缩写：应用程序编程接口（application programming interface）'], uk: 'ˌeɪ piː ˈaɪ', us: 'ˌeɪ piː ˈaɪ' },
   "hasn't": { glosses: ['has not 的缩写：没有；尚未'], uk: 'ˈhæzənt', us: 'ˈhæzənt' },
@@ -151,7 +180,7 @@ for (const key of [...keys].sort()) {
   const glosses = [...new Set(edited?.glosses ?? [
     ...(local?.glosses ?? []),
     ...(external?.glosses.length ? external.glosses : inherited?.glosses.map(gloss => '所有格 · ' + gloss) ?? []),
-  ].map(gloss => gloss.trim().replace(/\s+/gu, ' ')))].slice(0, 4)
+  ].map(gloss => gloss.trim().replace(/\s+/gu, ' ')))].slice(0, phraseKeys.has(key) ? 4 : 2)
   const uk = edited?.uk || local?.uk || ''
   const us = edited?.us || local?.us || ipaUs.get(key) || ''
   const ipa = uk || us ? '' : local?.ipa || external?.ipa || ''

@@ -102,6 +102,31 @@ describe('StudySession', () => {
     expect(within(screen.getByRole('dialog', { name: 'Wi-Fi' })).getByText(/无线网络/)).toBeInTheDocument()
   })
 
+  it('looks up an example-only word after reveal and returns focus to that word', async () => {
+    const user = userEvent.setup()
+    const sentence = 'Rental frequency rises during busy evening hours at this venue.'
+    const rental = { ...item, expression: 'rental frequency', zhGloss: '租借频次', examples: [{ en: sentence, zh: '租借频次会在晚间繁忙时段上升。' }] }
+    const onRate = vi.fn().mockResolvedValue(undefined)
+    render(<StudySession initialTasks={[task]} items={[rental]} tracks={[track]} mode="core"
+      usableThisWeek={0} onRate={onRate} onExit={vi.fn()} onFinish={vi.fn()}
+      evaluate={() => ({ rating: 'again', matched: false })} />)
+
+    expect(screen.getByText(sentence)).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: '查词 rises' })).not.toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: '想不起来' }))
+    const rises = await screen.findByRole('button', { name: '查词 rises' })
+    expect(rises.closest('p')?.textContent).toBe(sentence)
+    await user.click(rises)
+    const lookup = screen.getByRole('dialog', { name: 'rises' })
+    expect(within(lookup).getByText(/上升|上涨/)).toBeInTheDocument()
+    expect(within(lookup).getByRole('button', { name: '播放 rises 美式发音' })).toHaveTextContent(/aɪz/)
+    await user.keyboard('{Escape}')
+    expect(rises).toHaveFocus()
+    expect(onRate).not.toHaveBeenCalled()
+    await user.click(screen.getByRole('button', { name: /忘记了/ }))
+    expect(onRate).toHaveBeenCalledOnce()
+  })
+
   it('locks background scrolling during training and restores it on unmount', () => {
     const originalOverflow = document.body.style.overflow
     document.body.style.overflow = 'auto'
@@ -225,7 +250,7 @@ describe('StudySession', () => {
     await user.click(screen.getByRole('button', { name: /提交回忆/ }))
 
     expect(screen.getAllByText('现金流', { exact: true }).length).toBeGreaterThan(0)
-    expect(screen.getByText('We monitor cash flow every week.')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '查词 monitor' }).closest('p')).toHaveTextContent('We monitor cash flow every week.')
 
     await user.click(screen.getByRole('button', { name: /想起来了/ }))
     expect(onRate).toHaveBeenCalledWith(
@@ -487,6 +512,8 @@ describe('StudySession', () => {
     await user.click(screen.getByRole('button', { name: /提交回忆/ }))
     expect(evaluate).toHaveBeenCalledTimes(1)
     expect(screen.getByText('本次结果尚未验证')).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: '查词 monitor' }))
+    await user.click(within(screen.getByRole('dialog', { name: 'monitor' })).getByRole('button', { name: '关闭查词' }))
     await user.click(screen.getByRole('button', { name: '请 AI 验证本句' }))
     expect(evaluate).toHaveBeenCalledTimes(2)
     expect(evaluate.mock.calls[1][2]).toBe('We monitor cash flow.')

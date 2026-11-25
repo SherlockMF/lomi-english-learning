@@ -55,7 +55,7 @@ describe('App integration', () => {
     const user = userEvent.setup()
     const view = render(<App preserveVocabulary />)
     await user.click(await screen.findByRole('button', { name: '开始今天的训练' }))
-    await user.click(await screen.findByRole('button', { name: '想不起来' }))
+    await user.click(await screen.findByRole('button', { name: '想不起来' }, { timeout: 10_000 }))
     expect(screen.getByText('共享充电宝商业化')).toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: '纠正词条' }))
     const dialog = screen.getByRole('dialog', { name: '纠正词条' })

@@ -2316,6 +2316,7 @@ p {
 }
 
 .phrase-word-button:hover, .phrase-word-button:focus-visible { color: var(--green-dark); background: #edf3ee; }
+.example-word-button { min-height: 24px; vertical-align: baseline; text-decoration-thickness: 1px; }
 .phrase-word-backdrop { z-index: 210; background: rgba(19, 31, 28, 0.37); backdrop-filter: blur(3px); }
 .phrase-word-dialog { width: min(430px, 100%); padding: clamp(17px, 5vw, 26px); overflow-wrap: anywhere; }
 .phrase-word-dialog header { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }

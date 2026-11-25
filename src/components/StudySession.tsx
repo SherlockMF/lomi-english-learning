@@ -513,6 +513,7 @@ export function StudySession({
 
   const progress = Math.round((index / Math.max(1, tasks.length)) * 100)
   const prompt = buildPrompt(task, item, usagePrompt)
+  const example = item.examples[(track.reps + index) % Math.max(1, item.examples.length)]
 
   return (
     <div className="study-overlay">
@@ -683,7 +684,7 @@ export function StudySession({
               {isSentence && usagePrompt ? (
                 <div className="model-answer">
                   <span>自然范例</span>
-                  <p>{usagePrompt.modelAnswer}</p>
+                  <PhraseWordLookup as="p" key={task.id} expression={usagePrompt.modelAnswer} items={items} />
                   <ul>{usagePrompt.checkpoints.map((checkpoint) => <li key={checkpoint}><Icon name="check" size={15} /> {checkpoint}</li>)}</ul>
                 </div>
               ) : (
@@ -691,8 +692,10 @@ export function StudySession({
                   <div>
                     <span>IN CONTEXT</span>
                     {item.scenarioNote && <small>{item.scenarioNote}</small>}
-                    <p>{item.examples[(track.reps + index) % Math.max(1, item.examples.length)]?.en ?? '还没有例句，可以稍后在词库中补充。'}</p>
-                    {item.examples[(track.reps + index) % Math.max(1, item.examples.length)]?.zh && <small>{item.examples[(track.reps + index) % item.examples.length].zh}</small>}
+                    {example?.en
+                      ? <PhraseWordLookup as="p" key={task.id} expression={example.en} items={items} />
+                      : <p>还没有例句，可以稍后在词库中补充。</p>}
+                    {example?.zh && <small>{example.zh}</small>}
                   </div>
                   {item.collocations.length > 0 && <div className="collocation-list">{item.collocations.slice(0, 3).map((value) => <em key={value}>{value}</em>)}</div>}
                 </div>

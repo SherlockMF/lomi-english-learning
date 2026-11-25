@@ -21,8 +21,9 @@ export function extractArchive(archive, destination) {
   const target = resolve(destination)
   if (existsSync(target)) throw new Error(`Extraction directory already exists: ${target}`)
   if (process.platform === 'win32') {
+    // Windows PowerShell's Expand-Archive can select an overload unavailable on the CI runner.
     execFileSync('powershell.exe', ['-NoProfile', '-NonInteractive', '-Command',
-      "$ErrorActionPreference = 'Stop'; Expand-Archive -LiteralPath $env:RECALL_ARCHIVE_SOURCE -DestinationPath $env:RECALL_ARCHIVE_TARGET"],
+      "$ErrorActionPreference = 'Stop'; Add-Type -AssemblyName System.IO.Compression.FileSystem; [System.IO.Compression.ZipFile]::ExtractToDirectory($env:RECALL_ARCHIVE_SOURCE, $env:RECALL_ARCHIVE_TARGET)"],
     { env: { ...process.env, RECALL_ARCHIVE_SOURCE: source, RECALL_ARCHIVE_TARGET: target }, stdio: 'inherit' })
   } else {
     execFileSync('unzip', ['-q', source, '-d', target], { stdio: 'inherit' })

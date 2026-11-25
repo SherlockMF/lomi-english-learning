@@ -2,7 +2,7 @@ import { Fragment, useId, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import phraseWordDictionary from '../data/phraseWordDictionary.json'
 import type { VocabularyItem } from '../domain/types'
-import { phraseWordKey, phraseWordTokens } from '../lib/phraseWordTokens'
+import { englishWordTokens, phraseWordKey, phraseWordTokens } from '../lib/phraseWordTokens'
 import { speakWord } from '../lib/speech'
 import { useEscapeToClose } from '../lib/useEscapeToClose'
 import { useFocusTrap } from '../lib/useFocusTrap'
@@ -25,20 +25,21 @@ function printIpa(ipa: string) {
   return ipa.startsWith('/') ? ipa : `/${ipa}/`
 }
 
-export function PhraseWordLookup({ expression, items }: { expression: string; items: VocabularyItem[] }) {
+export function PhraseWordLookup({ expression, items, as: Element = 'h1' }: { expression: string; items: VocabularyItem[]; as?: 'h1' | 'p' }) {
   const [selectedWord, setSelectedWord] = useState<string | null>(null)
-  const tokens = phraseWordTokens(expression)
-  if (!tokens.length) return <h1>{expression}</h1>
+  const isExample = Element === 'p'
+  const tokens = isExample ? englishWordTokens(expression) : phraseWordTokens(expression)
+  if (!tokens.length) return <Element>{expression}</Element>
 
   return <>
-    <h1 aria-label={expression} lang="en">
+    <Element aria-label={isExample ? undefined : expression} lang="en">
       {tokens.map(({ word, start, end }, index) => <Fragment key={start}>
         {expression.slice(tokens[index - 1]?.end ?? 0, start)}
-        <button type="button" className="phrase-word-button" aria-label={`查词 ${word}`} aria-haspopup="dialog"
+        <button type="button" className={isExample ? 'phrase-word-button example-word-button' : 'phrase-word-button'} aria-label={`查词 ${word}`} aria-haspopup="dialog"
           onClick={() => setSelectedWord(word)}>{word}</button>
         {index === tokens.length - 1 && expression.slice(end)}
       </Fragment>)}
-    </h1>
+    </Element>
     {selectedWord && <PhraseWordDialog word={selectedWord} items={items} onClose={() => setSelectedWord(null)} />}
   </>
 }
