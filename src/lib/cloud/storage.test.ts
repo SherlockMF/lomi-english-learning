@@ -1,5 +1,7 @@
 import { afterEach, expect, it } from 'vitest'
-import { closeDatabase, getDatabase, patchWord, putSettings, recordReview, selectDatabaseAccount, setDatabaseTrackingEnabled, writeBatch } from '../db'
+import { forceCloseDatabase } from 'fake-indexeddb'
+import { openDB, unwrap } from 'idb'
+import { DATABASE_NAME, DATABASE_VERSION, closeDatabase, getDatabase, getRawDatabase, patchWord, putSettings, recordReview, selectDatabaseAccount, setDatabaseTrackingEnabled, writeBatch } from '../db'
 import { DEFAULT_SETTINGS, type ReviewAttempt, type Word } from '../../domain/types'
 import { createInitialTracks } from '../scheduler'
 import { applyCloudChanges, readCloudState } from './storage'
@@ -35,6 +37,44 @@ it('isolates account databases and atomically records writes and deletes in a pe
   setDatabaseTrackingEnabled(true)
   expect((await readCloudState()).queue).toHaveLength(0)
   expect(await (await getDatabase()).count('words')).toBe(0)
+})
+
+it('reopens an unexpectedly closed account connection for both writes and sync', async () => {
+  await selectDatabaseAccount(accountA)
+  setDatabaseTrackingEnabled(true)
+  await writeBatch({ words: [word] })
+  const previous = await getRawDatabase()
+  const closed = new Promise<void>(resolve => previous.addEventListener('close', () => resolve(), { once: true }))
+  // @ts-expect-error fake-indexeddb 6.2.5 types this argument as a constructor, but takes an instance.
+  forceCloseDatabase(unwrap(previous))
+  await closed
+  await putSettings(DEFAULT_SETTINGS)
+  expect(await (await getRawDatabase()).get('words', word.id)).toEqual(word)
+  expect((await readCloudState()).queue.map(entry => entry.collection).sort()).toEqual(['settings', 'words'])
+})
+
+it('does not reconnect a pending write to the next account', async () => {
+  await selectDatabaseAccount(accountA)
+  const previous = await getRawDatabase()
+  previous.close()
+  const pending = writeBatch({ words: [word] })
+  const switching = selectDatabaseAccount(accountB)
+  const next = getRawDatabase()
+  await Promise.all([expect(pending).rejects.toThrow(), switching])
+  expect((await next).name).toBe(`recall-english:${accountB}`)
+  expect(await (await getDatabase()).count('words')).toBe(0)
+})
+
+it('can open the next account even if opening the old one fails late', async () => {
+  const newer = await openDB(`${DATABASE_NAME}:${accountA}`, DATABASE_VERSION + 1)
+  newer.close()
+  await selectDatabaseAccount(accountA)
+  const old = getDatabase()
+  const switching = selectDatabaseAccount(accountB)
+  const next = getRawDatabase()
+  await Promise.all([expect(old).rejects.toThrow(), switching])
+  expect(await getRawDatabase()).toBe(await next)
+  expect((await next).name).toBe(`${DATABASE_NAME}:${accountB}`)
 })
 
 it('does not enqueue initialization or remote application, and cannot acknowledge a newer edit', async () => {

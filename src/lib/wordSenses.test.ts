@@ -29,6 +29,24 @@ describe('word senses', () => {
   beforeEach(async () => { await clearDatabase(); await initializeDatabase() })
   afterEach(async () => { await closeDatabase() })
 
+  it('reports an interrupted sense write without replaying it or committing any of its stores', async () => {
+    const put = IDBObjectStore.prototype.put
+    let aborted = false
+    const fault = vi.spyOn(IDBObjectStore.prototype, 'put').mockImplementation(function (this: IDBObjectStore, ...args) {
+      const request = put.apply(this, args)
+      if (!aborted && this.name === 'words') {
+        aborted = true
+        queueMicrotask(() => this.transaction.abort())
+      }
+      return request
+    })
+    try {
+      await expect(saveDictionarySenses(result, [0], 'auto')).rejects.toMatchObject({ name: 'AbortError' })
+      const snapshot = await getUserDataSnapshot()
+      expect([snapshot.words, snapshot.memberships, snapshot.tracks]).toEqual([[], [], []])
+    } finally { fault.mockRestore() }
+  })
+
   it('uses the same source sense after an English definition is added, retaining its ID and progress', async () => {
     const initial = { ...result, meanings: [{ ...result.meanings[0], definition: '', example: undefined }] }
     await saveDictionarySenses(initial, [], 'daily')

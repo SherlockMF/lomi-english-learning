@@ -4,6 +4,8 @@ import type {
   DictionaryResult,
 } from '../domain/types'
 import {
+  DatabaseConnectionError,
+  getDatabaseSession,
   getDictionaryCache,
   normalizeDictionaryQuery,
   setDictionaryCache,
@@ -307,6 +309,7 @@ export async function lookupDictionary(
     throw new DictionaryLookupError('empty-query', '请输入要查询的英文单词。')
   }
 
+  const database = getDatabaseSession()
   if (!options.forceRefresh) {
     const cached = await getDictionaryCache(normalizedQuery)
     if (cached && isUsableDictionaryCache(cached.result)) {
@@ -315,6 +318,7 @@ export async function lookupDictionary(
   }
 
   if (browserIsOffline()) {
+    database.assertCurrent()
     const cached = await getDictionaryCache(normalizedQuery)
     if (cached) return withPreferredAudio(cached.result)
     throw new DictionaryLookupError('offline', '当前处于离线状态，且本地没有该词条。')
@@ -352,10 +356,11 @@ export async function lookupDictionary(
       youdao: youdaoOutcome,
       english: englishOutcome.ok ? englishOutcome.value : undefined,
     })
+    database.assertCurrent()
     await setDictionaryCache(normalizedQuery, composed)
     return composed
   } catch (error) {
-    if (error instanceof DictionaryLookupError) throw error
+    if (error instanceof DictionaryLookupError || error instanceof DatabaseConnectionError) throw error
     if (timedOut) {
       throw new DictionaryLookupError('timeout', '词典查询超时，请稍后重试。')
     }

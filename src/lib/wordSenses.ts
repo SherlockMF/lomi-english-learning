@@ -1,6 +1,6 @@
 import type { DictionaryMeaning, DictionaryResult, ListSlug, SystemListSlug, VocabularyItem, Word, WordListItem } from '../domain/types'
 import { ALL_VOCABULARY_LISTS, LIST_IDS } from '../data/vocabularyLists'
-import { getDatabase, hydrateWords, normalizeUserSettings, type UserDataSnapshot } from './db'
+import { getDatabaseSession, hydrateWords, normalizeUserSettings, type UserDataSnapshot } from './db'
 import { createInitialTracks } from './scheduler'
 import { createSerialQueue } from './serialQueue'
 import { inferCategoryFromDictionary } from './inferCategory'
@@ -258,26 +258,32 @@ export function saveDictionarySenses(
   scenarioNote?: string,
   options?: { preserveExistingTraining?: boolean; preserveExistingTrainingIds?: ReadonlySet<string>; edits?: DictionarySenseEdit[] },
 ) {
+  const database = getDatabaseSession()
   return enqueueSave(async () => {
-    const database = await getDatabase()
-    const transaction = database.transaction(['words', 'wordListItems', 'tracks'], 'readwrite')
-    const [words, memberships, savedTracks] = await Promise.all([
-      transaction.objectStore('words').getAll(),
-      transaction.objectStore('wordListItems').getAll(),
-      transaction.objectStore('tracks').getAll(),
-    ])
-    const snapshot = { words, memberships, tracks: savedTracks }
-    const planned = planDictionarySenses(result, selectedIndices, category, scenarioNote, snapshot,
-      options?.preserveExistingTraining, options?.preserveExistingTrainingIds, options?.edits)
-    if (planned.words.length || planned.memberships.length) {
-      const trackKeys = new Set(snapshot.tracks.map((track) => `${track.itemId}:${track.type}`))
-      const tracks = createInitialTracks(planned.words).filter((track) => !trackKeys.has(`${track.itemId}:${track.type}`))
-      for (const word of planned.words) transaction.objectStore('words').put(word)
-      for (const membership of planned.memberships) transaction.objectStore('wordListItems').put(membership)
-      for (const track of tracks) transaction.objectStore('tracks').put(track)
+    const transaction = await database.transaction(['words', 'wordListItems', 'tracks'], 'readwrite')
+    const words = transaction.objectStore('words')
+    const memberships = transaction.objectStore('wordListItems')
+    const tracks = transaction.objectStore('tracks')
+    async function save() {
+      const [existingWords, existingMemberships, existingTracks] = await Promise.all([
+        words.getAll(), memberships.getAll(), tracks.getAll(),
+      ])
+      const planned = planDictionarySenses(result, selectedIndices, category, scenarioNote,
+        { words: existingWords, memberships: existingMemberships },
+        options?.preserveExistingTraining, options?.preserveExistingTrainingIds, options?.edits)
+      if (planned.words.length || planned.memberships.length) {
+        const trackKeys = new Set(existingTracks.map(track => `${track.itemId}:${track.type}`))
+        const newTracks = createInitialTracks(planned.words).filter(track => !trackKeys.has(`${track.itemId}:${track.type}`))
+        await Promise.all([
+          ...planned.words.map(word => words.put(word)),
+          ...planned.memberships.map(membership => memberships.put(membership)),
+          ...newTracks.map(track => tracks.put(track)),
+        ])
+      }
+      return { added: planned.added, activated: planned.activated, total: planned.total }
     }
-    await transaction.done
-    return { added: planned.added, activated: planned.activated, total: planned.total }
+    const [summary] = await Promise.all([save(), transaction.done])
+    return summary
   })
 }
 
@@ -288,10 +294,10 @@ export interface BundledDictionarySenses {
 
 /** One incremental transaction; never resurrect deleted entries or rewrite existing seed content. */
 export function applyBundledDictionarySenses(pack: BundledDictionarySenses) {
+  const database = getDatabaseSession()
   return enqueueSave(async () => {
     // Reading and writing in the same transaction also serializes separate tabs.
-    const database = await getDatabase()
-    const transaction = database.transaction(['words', 'vocabularyLists', 'wordListItems', 'tracks', 'attempts', 'settings'], 'readwrite')
+    const transaction = await database.transaction(['words', 'vocabularyLists', 'wordListItems', 'tracks', 'attempts', 'settings'], 'readwrite')
     const [existingWords, existingMemberships, existingTracks, storedSettings, lists, attempts] = await Promise.all([
       transaction.objectStore('words').getAll(),
       transaction.objectStore('wordListItems').getAll(),

@@ -3,7 +3,7 @@ import userEvent from '@testing-library/user-event'
 import { StrictMode } from 'react'
 import { afterEach, beforeEach, vi } from 'vitest'
 import App from './App'
-import { clearDatabase, closeDatabase, getRawDatabase, getUserDataSnapshot, initializeDatabase, putSettings, putStudyTimeEntry, writeBatch } from './lib/db'
+import { clearDatabase, closeDatabase, getRawDatabase, getUserDataSnapshot, initializeDatabase, putSettings, putStudyTimeEntry, selectDatabaseAccount, writeBatch } from './lib/db'
 import { DEFAULT_SETTINGS, type ReviewAttempt } from './domain/types'
 import { handcraftedSeedMemberships, handcraftedSeedWords, loadSeedPack } from './data/seedVocabulary'
 import * as seedVocabulary from './data/seedVocabulary'
@@ -384,6 +384,74 @@ describe('App integration', () => {
     expect(after.words.find((word) => word.id === untouched.id)).toEqual(untouched)
     expect(after.tracks).toEqual(before.tracks)
   }, 120_000)
+
+  it('continues a bulk import if the connection closes during dictionary lookup', async () => {
+    const user = userEvent.setup()
+    render(<App />)
+    await screen.findByText('今日学习计划', {}, { timeout: 20_000 })
+    const previous = await getRawDatabase()
+    const lookup = vi.spyOn(dictionary, 'lookupDictionary').mockImplementation(async (query) => {
+      previous.close()
+      return { query, word: query, fetchedAt: '2026-11-28T00:00:00Z', meanings: [
+        { partOfSpeech: 'noun', zhGloss: '商家', definition: 'a seller', synonyms: [] },
+      ] }
+    })
+    await user.click(screen.getAllByRole('button', { name: '添加' })[0])
+    await user.click(await screen.findByRole('button', { name: '批量粘贴' }))
+    await user.type(screen.getByLabelText('批量词汇'), 'merchant-probe | 商家\nmerchant-probe | 商家')
+    await user.click(screen.getByRole('button', { name: '补全并加入队列' }))
+    await screen.findByText(/已处理 1 条新增内容.*跳过 1 条重复内容.*保存失败 0 条/, {}, { timeout: 5_000 })
+    expect(lookup).toHaveBeenCalledTimes(1)
+    expect((await getUserDataSnapshot()).words.filter(word => word.expression === 'merchant-probe')).toHaveLength(1)
+  }, 30_000)
+
+  it('stops after one failed reconnection and keeps the original bulk input', async () => {
+    const user = userEvent.setup()
+    render(<App />)
+    await screen.findByText('今日学习计划', {}, { timeout: 20_000 })
+    vi.spyOn(dictionary, 'lookupDictionary').mockImplementation(async query => ({
+      query, word: query, fetchedAt: '2026-11-28T00:00:00Z',
+      meanings: [{ partOfSpeech: 'noun', zhGloss: '商家', definition: 'a seller', synonyms: [] }],
+    }))
+    const create = IDBDatabase.prototype.transaction
+    let starts = 0
+    vi.spyOn(IDBDatabase.prototype, 'transaction').mockImplementation(function (this: IDBDatabase, stores, mode, options) {
+      if (mode === 'readwrite' && Array.isArray(stores) && stores.includes('words') && stores.includes('tracks')) {
+        starts++
+        this.close()
+      }
+      return create.call(this, stores, mode, options)
+    })
+    const text = 'merchant-probe | 商家\nmerchant-portal-probe | 商家后台'
+    await user.click(screen.getAllByRole('button', { name: '添加' })[0])
+    await user.click(await screen.findByRole('button', { name: '批量粘贴' }))
+    await user.type(screen.getByLabelText('批量词汇'), text)
+    await user.click(screen.getByRole('button', { name: '补全并加入队列' }))
+    await screen.findByText(/^本地词库连接中断/)
+    expect(starts).toBe(2)
+    expect(screen.getByLabelText('批量词汇')).toHaveValue(text)
+  }, 30_000)
+
+  it('keeps the pasted rows when the account changes during a bulk lookup', async () => {
+    const user = userEvent.setup()
+    render(<App />)
+    await screen.findByText('今日学习计划', {}, { timeout: 20_000 })
+    vi.spyOn(dictionary, 'lookupDictionary').mockImplementation(async query => {
+      await selectDatabaseAccount('next-import-account')
+      return { query, word: query, fetchedAt: '2026-11-28T00:00:00Z', meanings: [
+        { partOfSpeech: 'noun', zhGloss: '商家', definition: 'a seller', synonyms: [] },
+      ] }
+    })
+    try {
+      await user.click(screen.getAllByRole('button', { name: '添加' })[0])
+      await user.click(await screen.findByRole('button', { name: '批量粘贴' }))
+      await user.type(screen.getByLabelText('批量词汇'), 'merchant-probe | 商家')
+      await user.click(screen.getByRole('button', { name: '补全并加入队列' }))
+      await screen.findByText(/词库已切换/)
+      expect(screen.getByLabelText('批量词汇')).toHaveValue('merchant-probe | 商家')
+      expect((await getUserDataSnapshot()).words).toEqual([])
+    } finally { await selectDatabaseAccount(null) }
+  }, 30_000)
 
   it('imports multiple senses with distinct automatic categories and retains only failed English rows', async () => {
     const lookup = vi.spyOn(dictionary, 'lookupDictionary').mockImplementation(async (query) => {

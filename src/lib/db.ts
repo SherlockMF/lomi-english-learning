@@ -3,6 +3,7 @@ import {
   type DBSchema,
   type IDBPDatabase,
   type IDBPTransaction,
+  type StoreNames,
 } from 'idb'
 
 import { ALL_VOCABULARY_LISTS, listIdForSlug } from '../data/vocabularyLists'
@@ -134,25 +135,24 @@ export interface UserDataSnapshot {
   settings: UserSettings
 }
 
-let databasePromise: Promise<IDBPDatabase<RecallEnglishDatabase>> | undefined
-let databaseAccount: string | null = null
 let trackingEnabled = false
-let rawDatabasePromise: Promise<IDBPDatabase<RecallEnglishDatabase>> | undefined
 
 export function setDatabaseTrackingEnabled(enabled: boolean) { trackingEnabled = enabled }
-export function getDatabaseAccount() { return databaseAccount }
+export function getDatabaseAccount() { return currentDatabase.account }
+export function getDatabaseSession(): Pick<DatabaseSession, 'assertCurrent' | 'transaction'> { return currentDatabase }
 
 export async function selectDatabaseAccount(account: string | null) {
   if (account !== null && !/^[a-z\d-]{1,80}$/i.test(account)) throw new Error('账号标识无效。')
   trackingEnabled = false
-  if (databaseAccount === account) return
-  await closeDatabase()
-  databaseAccount = account
+  if (currentDatabase.account !== account) await switchDatabase(account)
 }
 
 export async function getRawDatabase() {
-  await getDatabase()
-  return rawDatabasePromise!
+  return currentDatabase.connect().raw
+}
+
+export function getDatabase() {
+  return currentDatabase.connect().tracked
 }
 
 function createDefaultSettings(): UserSettings {
@@ -426,10 +426,37 @@ function createStores(
   }
 }
 
-export function getDatabase(): Promise<IDBPDatabase<RecallEnglishDatabase>> {
-  if (!databasePromise) {
-    const account = databaseAccount
-    rawDatabasePromise = openDB<RecallEnglishDatabase>(account ? `${DATABASE_NAME}:${account}` : DATABASE_NAME, DATABASE_VERSION, {
+type DatabaseConnection = {
+  raw: Promise<IDBPDatabase<RecallEnglishDatabase>>
+  tracked: Promise<IDBPDatabase<RecallEnglishDatabase>>
+}
+
+export class DatabaseConnectionError extends Error {}
+
+class DatabaseSession {
+  private connection?: DatabaseConnection
+  readonly account: string | null
+
+  constructor(account: string | null) { this.account = account }
+
+  assertCurrent() {
+    if (this !== currentDatabase) throw new Error('当前词库已切换，请重新操作。')
+  }
+
+  connect(): DatabaseConnection {
+    this.assertCurrent()
+    if (this.connection) return this.connection
+    const name = this.account ? `${DATABASE_NAME}:${this.account}` : DATABASE_NAME
+    const forget = () => {
+      if (this.connection === connection) this.connection = undefined
+    }
+    const raw = openDB<RecallEnglishDatabase>(name, DATABASE_VERSION, {
+      terminated: forget,
+      blocking(_oldVersion, _newVersion, event) {
+        const database = event.target as IDBDatabase
+        database.close()
+        forget()
+      },
       async upgrade(database, oldVersion, _newVersion, transaction) {
         if (!database.objectStoreNames.contains('cloudQueue')) database.createObjectStore('cloudQueue', { keyPath: 'id' })
         if (!database.objectStoreNames.contains('cloudMeta')) database.createObjectStore('cloudMeta', { keyPath: 'key' })
@@ -455,15 +482,53 @@ export function getDatabase(): Promise<IDBPDatabase<RecallEnglishDatabase>> {
         const settings = await settingsStore.get('primary')
         if (settings) await settingsStore.put(normalizeUserSettings(settings))
       },
+    }).catch((error: unknown) => {
+      if (error instanceof DOMException && error.name === 'VersionError') {
+        throw new DatabaseConnectionError('本地词库已升级。请先复制未保存的内容，再刷新页面。', { cause: error })
+      }
+      throw error
     })
-    databasePromise = rawDatabasePromise.then(database => account ? trackDatabase(database, () => trackingEnabled) : database)
-    databasePromise.catch(() => {
-      databasePromise = undefined
-      rawDatabasePromise = undefined
-    })
+    const tracked = this.account ? raw.then(database => trackDatabase(database, () => trackingEnabled)) : raw
+    const connection = { raw, tracked }
+    this.connection = connection
+    void tracked.catch(forget)
+    return connection
   }
 
-  return databasePromise
+  async transaction<const Stores extends readonly StoreNames<RecallEnglishDatabase>[], Mode extends 'readonly' | 'readwrite'>(
+    stores: Stores, mode: Mode,
+  ) {
+    for (let attempt = 0; ; attempt++) {
+      const connection = this.connect()
+      // oxlint-disable-next-line no-await-in-loop -- Reopen only after the previous transaction failed to start.
+      const database = await connection.tracked
+      this.assertCurrent()
+      try {
+        return database.transaction(stores, mode)
+      } catch (error) {
+        // Only transaction creation is safe to retry. No requests have been issued yet.
+        if (!(error instanceof DOMException) || error.name !== 'InvalidStateError') throw error
+        if (this.connection === connection) this.connection = undefined
+        database.close()
+        if (attempt === 1) throw new DatabaseConnectionError('本地词库连接中断，请重试。如需刷新页面，请先复制尚未保存的内容。', { cause: error })
+      }
+    }
+  }
+
+  async close() {
+    const previous = this.connection
+    this.connection = undefined
+    // An open request that already failed has no connection to close.
+    await previous?.raw.then(database => database.close(), () => undefined)
+  }
+}
+
+let currentDatabase = new DatabaseSession(null)
+
+function switchDatabase(account: string | null) {
+  const previous = currentDatabase
+  currentDatabase = new DatabaseSession(account)
+  return previous.close()
 }
 
 export interface InitializeDatabaseResult {
@@ -522,7 +587,7 @@ export async function initializeDatabase(
   const trackStore = transaction.objectStore('tracks')
   const settingsStore = transaction.objectStore('settings')
 
-  if (databaseAccount && seedWords.length) {
+  if (getDatabaseAccount() && seedWords.length) {
     const meta = transaction.objectStore('cloudMeta')
     const existing = await meta.get('sharedSeedIds')
     const ids = new Set((existing?.value ?? []) as string[])
@@ -1008,7 +1073,9 @@ export async function getDictionaryCache(
 ): Promise<DictionaryCache | undefined> {
   const normalizedQuery = normalizeDictionaryQuery(query)
   if (!normalizedQuery) return undefined
-  return (await getDatabase()).get('dictionaryCache', normalizedQuery)
+  const transaction = await currentDatabase.transaction(['dictionaryCache'], 'readonly')
+  const [cache] = await Promise.all([transaction.store.get(normalizedQuery), transaction.done])
+  return cache
 }
 
 export async function setDictionaryCache(
@@ -1018,11 +1085,12 @@ export async function setDictionaryCache(
 ): Promise<void> {
   const normalizedQuery = normalizeDictionaryQuery(query)
   if (!normalizedQuery) return
-  await (await getDatabase()).put('dictionaryCache', {
+  const transaction = await currentDatabase.transaction(['dictionaryCache'], 'readwrite')
+  await Promise.all([transaction.store.put({
     query: normalizedQuery,
     result,
     cachedAt,
-  })
+  }), transaction.done])
 }
 
 export async function deleteDictionaryCache(query: string): Promise<void> {
@@ -1051,8 +1119,7 @@ export async function writeBatch(batch: DatabaseBatch): Promise<void> {
   if (batch.dictionaryCache?.length) stores.add('dictionaryCache')
   if (stores.size === 0) return
 
-  const database = await getDatabase()
-  const transaction = database.transaction([...stores], 'readwrite')
+  const transaction = await currentDatabase.transaction([...stores], 'readwrite')
 
   for (const expected of batch.expectedWords ?? []) {
     const current = await transaction.objectStore('words').get(expected.id)
@@ -1085,8 +1152,7 @@ export async function writeBatch(batch: DatabaseBatch): Promise<void> {
 }
 
 export async function getUserDataSnapshot(): Promise<UserDataSnapshot> {
-  const database = await getDatabase()
-  const transaction = database.transaction(
+  const transaction = await currentDatabase.transaction(
     ['words', 'vocabularyLists', 'wordListItems', 'tracks', 'attempts', 'timeEntries', 'settings'],
     'readonly',
   )
@@ -1098,8 +1164,8 @@ export async function getUserDataSnapshot(): Promise<UserDataSnapshot> {
     transaction.objectStore('attempts').getAll(),
     transaction.objectStore('timeEntries').getAll(),
     transaction.objectStore('settings').get('primary'),
+    transaction.done,
   ])
-  await transaction.done
 
   const ensuredLists = lists.length > 0 ? lists : ALL_VOCABULARY_LISTS
   const settings = storedSettings
@@ -1209,14 +1275,8 @@ export async function clearDatabase(): Promise<void> {
   await transaction.done
 }
 
-export async function closeDatabase(): Promise<void> {
-  const currentDatabasePromise = databasePromise
-  databasePromise = undefined
-  rawDatabasePromise = undefined
-  if (currentDatabasePromise) {
-    const database = await currentDatabasePromise
-    database.close()
-  }
+export function closeDatabase(): Promise<void> {
+  return switchDatabase(currentDatabase.account)
 }
 
 export { primaryListSlug, hydrateWord }

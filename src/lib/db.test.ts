@@ -24,6 +24,7 @@ import {
   getDueLearningTracks,
   getSettings,
   getDatabase,
+  getRawDatabase,
   getUserDataSnapshot,
   hydrateWord,
   initializeDatabase,
@@ -108,6 +109,27 @@ describe('IndexedDB persistence', () => {
   afterEach(async () => {
     await closeDatabase()
     await deleteDB(DATABASE_NAME)
+  })
+
+  it('can start concurrent reads while the previous connection is closing', async () => {
+    await writeBatch({ words: [word()], tracks: [track({ reps: 4 })] })
+    const previous = await getRawDatabase()
+    previous.close()
+    const [first, second] = await Promise.all([getUserDataSnapshot(), getUserDataSnapshot()])
+    expect(first.words).toEqual([word()])
+    expect(second.tracks).toEqual([track({ reps: 4 })])
+  })
+
+  it('releases the old connection when another tab upgrades the database', async () => {
+    const previous = await getRawDatabase()
+    let blocked = false
+    const upgraded = await openDB(DATABASE_NAME, DATABASE_VERSION + 1, {
+      blocked() { blocked = true; previous.close() },
+    })
+    try {
+      expect(blocked).toBe(false)
+      await expect(getUserDataSnapshot()).rejects.toMatchObject({ message: expect.stringContaining('刷新'), cause: { name: 'VersionError' } })
+    } finally { upgraded.close() }
   })
 
   it('removes the last priority membership, including legacy ids, without removing the custom word or learning history', async () => {
